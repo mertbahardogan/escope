@@ -1,7 +1,6 @@
-# Escope - Elasticsearch CLI Tool
+# escope - Elasticsearch CLI Tool
 
-**Escope** - Your Elasticsearch cluster at your fingertips! 🚀 A powerful command-line interface tool for Elasticsearch cluster diagnostics and monitoring.
-
+**escope** is a powerful CLI tool developed for **diagnostics** and **monitoring** of your **Elasticsearch** cluster. 🚀
 ## Features
 
 - ⚙️ **Configuration Management** - Save, view, and manage connection settings
@@ -32,7 +31,7 @@ go install github.com/mertbahardogan/escope@latest
 
 After running the installation command, ensure your Go bin directory is included in your system's PATH so you can run `escope` from any location.
 
-Once installed, Escope is ready to use. If no configuration exists, the tool will provide helpful setup instructions when you first run it.
+Once installed, **escope** is ready to use. If no configuration exists, the tool will provide helpful setup instructions when you first run it.
 
 ## Quick Start
 

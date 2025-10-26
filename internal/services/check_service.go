@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/mertbahardogan/escope/internal/config"
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/models"
@@ -260,6 +261,9 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 		Timestamp: time.Now(),
 	}
 
+	var cpuValues []float64
+	var heapValues []float64
+
 	if nodes, ok := nodesData[constants.NodesField].(map[string]interface{}); ok {
 		for _, nodeData := range nodes {
 			if node, ok := nodeData.(map[string]interface{}); ok {
@@ -267,6 +271,7 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 					if cpu, ok := os[constants.CPUField].(map[string]interface{}); ok {
 						if percent, ok := cpu[constants.CPUPercentField].(float64); ok {
 							usage.CPUUsage += percent
+							cpuValues = append(cpuValues, percent)
 						}
 					}
 				}
@@ -275,6 +280,7 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 					if mem, ok := jvm[constants.JVMMemField].(map[string]interface{}); ok {
 						if heapUsed, ok := mem[constants.HeapUsedPctField].(float64); ok {
 							usage.HeapUsage += heapUsed
+							heapValues = append(heapValues, heapUsed)
 						}
 					}
 				}
@@ -298,6 +304,30 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 	if usage.NodeCount > 0 {
 		usage.CPUUsage /= float64(usage.NodeCount)
 		usage.HeapUsage /= float64(usage.NodeCount)
+		if len(cpuValues) > 0 {
+			usage.CPUUsageMin = cpuValues[0]
+			usage.CPUUsageMax = cpuValues[0]
+			for _, val := range cpuValues {
+				if val < usage.CPUUsageMin {
+					usage.CPUUsageMin = val
+				}
+				if val > usage.CPUUsageMax {
+					usage.CPUUsageMax = val
+				}
+			}
+		}
+		if len(heapValues) > 0 {
+			usage.HeapUsageMin = heapValues[0]
+			usage.HeapUsageMax = heapValues[0]
+			for _, val := range heapValues {
+				if val < usage.HeapUsageMin {
+					usage.HeapUsageMin = val
+				}
+				if val > usage.HeapUsageMax {
+					usage.HeapUsageMax = val
+				}
+			}
+		}
 	}
 
 	return usage, nil
@@ -375,6 +405,15 @@ func (s *checkService) GetSegmentWarningsCheck(ctx context.Context) (*models.Seg
 		return nil, fmt.Errorf(constants.ErrFailedToGetSegmentsInfo, err)
 	}
 
+	thresholds, err := config.GetThresholdsForCluster(ctx, s.client)
+	if err != nil {
+		thresholds = &config.DynamicThresholds{
+			HighSegmentThreshold:  constants.HighSegmentThreshold,
+			SmallSegmentThreshold: constants.SmallSegmentThreshold,
+			LargeSegmentThreshold: constants.LargeSegmentThreshold,
+		}
+	}
+
 	warnings := &models.SegmentWarnings{}
 
 	for _, seg := range segments {
@@ -382,7 +421,7 @@ func (s *checkService) GetSegmentWarningsCheck(ctx context.Context) (*models.Seg
 			continue
 		}
 
-		if seg.SegmentCount > constants.HighSegmentThreshold {
+		if seg.SegmentCount > thresholds.HighSegmentThreshold {
 			warnings.HighSegmentIndices++
 		}
 
@@ -391,10 +430,10 @@ func (s *checkService) GetSegmentWarningsCheck(ctx context.Context) (*models.Seg
 			avgMemPerSeg = seg.SizeBytes / int64(seg.SegmentCount)
 		}
 
-		if avgMemPerSeg < constants.SmallSegmentThreshold {
+		if avgMemPerSeg < thresholds.SmallSegmentThreshold {
 			warnings.SmallSegmentIndices++
 		}
-		if avgMemPerSeg > constants.LargeSegmentThreshold {
+		if avgMemPerSeg > thresholds.LargeSegmentThreshold {
 			warnings.LargeSegmentIndices++
 		}
 	}

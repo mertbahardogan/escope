@@ -31,7 +31,11 @@ type ResourceUsage struct {
 	Timestamp     time.Time
 	NodeCount     int
 	CPUUsage      float64
+	CPUUsageMin   float64
+	CPUUsageMax   float64
 	HeapUsage     float64
+	HeapUsageMin  float64
+	HeapUsageMax  float64
 	DiskTotal     int64
 	DiskAvailable int64
 }

@@ -28,16 +28,20 @@ type IndexHealth struct {
 }
 
 type ResourceUsage struct {
-	Timestamp     time.Time
-	NodeCount     int
-	CPUUsage      float64
-	CPUUsageMin   float64
-	CPUUsageMax   float64
-	HeapUsage     float64
-	HeapUsageMin  float64
-	HeapUsageMax  float64
-	DiskTotal     int64
-	DiskAvailable int64
+	Timestamp        time.Time
+	NodeCount        int
+	CPUUsage         float64
+	CPUUsageMin      float64
+	CPUUsageMax      float64
+	CPUUsageMinNode  string
+	CPUUsageMaxNode  string
+	HeapUsage        float64
+	HeapUsageMin     float64
+	HeapUsageMax     float64
+	HeapUsageMinNode string
+	HeapUsageMaxNode string
+	DiskTotal        int64
+	DiskAvailable    int64
 }
 
 type Performance struct {

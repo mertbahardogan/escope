@@ -46,8 +46,8 @@ func (f *CheckFormatter) FormatCheckReport(
 	var cpuItems []string
 	if resourceUsage != nil {
 		cpuItems = append(cpuItems, "Average CPU Usage: "+fmt.Sprintf("%.1f%%", resourceUsage.CPUUsage))
-		cpuItems = append(cpuItems, "CPU Usage Min: "+fmt.Sprintf("%.1f%%", resourceUsage.CPUUsageMin))
-		cpuItems = append(cpuItems, "CPU Usage Max: "+fmt.Sprintf("%.1f%%", resourceUsage.CPUUsageMax))
+		cpuItems = append(cpuItems, "CPU Usage Min: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.CPUUsageMin, resourceUsage.CPUUsageMinNode))
+		cpuItems = append(cpuItems, "CPU Usage Max: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.CPUUsageMax, resourceUsage.CPUUsageMaxNode))
 	}
 	if len(cpuItems) > 0 {
 		sections = append(sections, ReportSection{
@@ -60,8 +60,8 @@ func (f *CheckFormatter) FormatCheckReport(
 	var memoryItems []string
 	if resourceUsage != nil {
 		memoryItems = append(memoryItems, "Average Memory Usage: "+fmt.Sprintf("%.1f%%", resourceUsage.HeapUsage))
-		memoryItems = append(memoryItems, "Memory Usage Min: "+fmt.Sprintf("%.1f%%", resourceUsage.HeapUsageMin))
-		memoryItems = append(memoryItems, "Memory Usage Max: "+fmt.Sprintf("%.1f%%", resourceUsage.HeapUsageMax))
+		memoryItems = append(memoryItems, "Memory Usage Min: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.HeapUsageMin, resourceUsage.HeapUsageMinNode))
+		memoryItems = append(memoryItems, "Memory Usage Max: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.HeapUsageMax, resourceUsage.HeapUsageMaxNode))
 	}
 	if len(memoryItems) > 0 {
 		sections = append(sections, ReportSection{

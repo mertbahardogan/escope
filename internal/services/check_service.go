@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/mertbahardogan/escope/internal/config"
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/models"
@@ -260,13 +261,44 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 		Timestamp: time.Now(),
 	}
 
+	type nodeMetric struct {
+		cpuUsage  float64
+		heapUsage float64
+		nodeName  string
+		nodeIP    string
+	}
+
+	var nodeMetrics []nodeMetric
+
 	if nodes, ok := nodesData[constants.NodesField].(map[string]interface{}); ok {
 		for _, nodeData := range nodes {
 			if node, ok := nodeData.(map[string]interface{}); ok {
+				isDataNode := false
+				if rolesData, ok := node[constants.RolesField].([]interface{}); ok {
+					for _, role := range rolesData {
+						if roleStr, ok := role.(string); ok {
+							if roleStr == constants.NodeRoleData {
+								isDataNode = true
+								break
+							}
+						}
+					}
+				}
+
+				if !isDataNode {
+					continue
+				}
+
+				metric := nodeMetric{
+					nodeName: util.GetStringField(node, constants.NameField),
+					nodeIP:   util.GetStringField(node, constants.IPField),
+				}
+
 				if os, ok := node[constants.OSField].(map[string]interface{}); ok {
 					if cpu, ok := os[constants.CPUField].(map[string]interface{}); ok {
 						if percent, ok := cpu[constants.CPUPercentField].(float64); ok {
 							usage.CPUUsage += percent
+							metric.cpuUsage = percent
 						}
 					}
 				}
@@ -275,6 +307,7 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 					if mem, ok := jvm[constants.JVMMemField].(map[string]interface{}); ok {
 						if heapUsed, ok := mem[constants.HeapUsedPctField].(float64); ok {
 							usage.HeapUsage += heapUsed
+							metric.heapUsage = heapUsed
 						}
 					}
 				}
@@ -290,14 +323,49 @@ func (s *checkService) GetResourceUsageCheck(ctx context.Context) (*models.Resou
 					}
 				}
 
-				usage.NodeCount++
+				nodeMetrics = append(nodeMetrics, metric)
+				usage.NodeCount = len(nodeMetrics) // Only count data nodes
 			}
 		}
 	}
 
-	if usage.NodeCount > 0 {
-		usage.CPUUsage /= float64(usage.NodeCount)
-		usage.HeapUsage /= float64(usage.NodeCount)
+	dataNodeCount := len(nodeMetrics)
+	if dataNodeCount > 0 {
+		usage.CPUUsage /= float64(dataNodeCount)
+		usage.HeapUsage /= float64(dataNodeCount)
+
+		// Find min/max CPU nodes
+		if len(nodeMetrics) > 0 {
+			minCPUNode := nodeMetrics[0]
+			maxCPUNode := nodeMetrics[0]
+			minHeapNode := nodeMetrics[0]
+			maxHeapNode := nodeMetrics[0]
+
+			for _, metric := range nodeMetrics {
+				if metric.cpuUsage < minCPUNode.cpuUsage {
+					minCPUNode = metric
+				}
+				if metric.cpuUsage > maxCPUNode.cpuUsage {
+					maxCPUNode = metric
+				}
+				if metric.heapUsage < minHeapNode.heapUsage {
+					minHeapNode = metric
+				}
+				if metric.heapUsage > maxHeapNode.heapUsage {
+					maxHeapNode = metric
+				}
+			}
+
+			usage.CPUUsageMin = minCPUNode.cpuUsage
+			usage.CPUUsageMax = maxCPUNode.cpuUsage
+			usage.CPUUsageMinNode = fmt.Sprintf("%s - %s", minCPUNode.nodeName, minCPUNode.nodeIP)
+			usage.CPUUsageMaxNode = fmt.Sprintf("%s - %s", maxCPUNode.nodeName, maxCPUNode.nodeIP)
+
+			usage.HeapUsageMin = minHeapNode.heapUsage
+			usage.HeapUsageMax = maxHeapNode.heapUsage
+			usage.HeapUsageMinNode = fmt.Sprintf("%s - %s", minHeapNode.nodeName, minHeapNode.nodeIP)
+			usage.HeapUsageMaxNode = fmt.Sprintf("%s - %s", maxHeapNode.nodeName, maxHeapNode.nodeIP)
+		}
 	}
 
 	return usage, nil
@@ -375,6 +443,15 @@ func (s *checkService) GetSegmentWarningsCheck(ctx context.Context) (*models.Seg
 		return nil, fmt.Errorf(constants.ErrFailedToGetSegmentsInfo, err)
 	}
 
+	thresholds, err := config.GetThresholdsForCluster(ctx, s.client)
+	if err != nil {
+		thresholds = &config.DynamicThresholds{
+			HighSegmentThreshold:  constants.HighSegmentThreshold,
+			SmallSegmentThreshold: constants.SmallSegmentThreshold,
+			LargeSegmentThreshold: constants.LargeSegmentThreshold,
+		}
+	}
+
 	warnings := &models.SegmentWarnings{}
 
 	for _, seg := range segments {
@@ -382,7 +459,7 @@ func (s *checkService) GetSegmentWarningsCheck(ctx context.Context) (*models.Seg
 			continue
 		}
 
-		if seg.SegmentCount > constants.HighSegmentThreshold {
+		if seg.SegmentCount > thresholds.HighSegmentThreshold {
 			warnings.HighSegmentIndices++
 		}
 
@@ -391,10 +468,10 @@ func (s *checkService) GetSegmentWarningsCheck(ctx context.Context) (*models.Seg
 			avgMemPerSeg = seg.SizeBytes / int64(seg.SegmentCount)
 		}
 
-		if avgMemPerSeg < constants.SmallSegmentThreshold {
+		if avgMemPerSeg < thresholds.SmallSegmentThreshold {
 			warnings.SmallSegmentIndices++
 		}
-		if avgMemPerSeg > constants.LargeSegmentThreshold {
+		if avgMemPerSeg > thresholds.LargeSegmentThreshold {
 			warnings.LargeSegmentIndices++
 		}
 	}

@@ -42,6 +42,35 @@ func (f *CheckFormatter) FormatCheckReport(
 		})
 	}
 
+	// CPU Performance Metrics
+	var cpuItems []string
+	if resourceUsage != nil {
+		cpuItems = append(cpuItems, "Average CPU Usage: "+fmt.Sprintf("%.1f%%", resourceUsage.CPUUsage))
+		cpuItems = append(cpuItems, "CPU Usage Min: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.CPUUsageMin, resourceUsage.CPUUsageMinNode))
+		cpuItems = append(cpuItems, "CPU Usage Max: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.CPUUsageMax, resourceUsage.CPUUsageMaxNode))
+	}
+	if len(cpuItems) > 0 {
+		sections = append(sections, ReportSection{
+			Title: "CPU METRICS",
+			Items: cpuItems,
+		})
+	}
+
+	// Memory Performance Metrics
+	var memoryItems []string
+	if resourceUsage != nil {
+		memoryItems = append(memoryItems, "Average Memory Usage: "+fmt.Sprintf("%.1f%%", resourceUsage.HeapUsage))
+		memoryItems = append(memoryItems, "Memory Usage Min: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.HeapUsageMin, resourceUsage.HeapUsageMinNode))
+		memoryItems = append(memoryItems, "Memory Usage Max: "+fmt.Sprintf("%.1f%% - %s", resourceUsage.HeapUsageMax, resourceUsage.HeapUsageMaxNode))
+	}
+	if len(memoryItems) > 0 {
+		sections = append(sections, ReportSection{
+			Title: "MEMORY METRICS",
+			Items: memoryItems,
+		})
+	}
+
+	// General Performance Metrics (Index/Query times)
 	var performanceItems []string
 	if performance != nil && performance.IndexTotal > 0 {
 		avgIndexTime := float64(performance.IndexTimeInMillis) / float64(performance.IndexTotal)
@@ -50,10 +79,6 @@ func (f *CheckFormatter) FormatCheckReport(
 	if performance != nil && performance.QueryTotal > 0 {
 		avgQueryTime := float64(performance.QueryTimeInMillis) / float64(performance.QueryTotal)
 		performanceItems = append(performanceItems, "Average Query Time: "+fmt.Sprintf("%.1fms", avgQueryTime))
-	}
-	if resourceUsage != nil {
-		performanceItems = append(performanceItems, "CPU Usage: "+fmt.Sprintf("%.1f%%", resourceUsage.CPUUsage))
-		performanceItems = append(performanceItems, "Memory Usage: "+fmt.Sprintf("%.1f%%", resourceUsage.HeapUsage))
 	}
 	if len(performanceItems) > 0 {
 		sections = append(sections, ReportSection{
@@ -73,7 +98,7 @@ func (f *CheckFormatter) FormatCheckReport(
 
 	if len(recommendations["INDEX"]) > 0 {
 		sections = append(sections, ReportSection{
-			Title: "INDEX:",
+			Title: "INDEX",
 			Items: recommendations["INDEX"],
 		})
 	}
@@ -187,7 +212,7 @@ func (f *CheckFormatter) getWarningIssues(clusterHealth *models.ClusterInfo, sha
 
 	if segmentWarnings != nil {
 		if segmentWarnings.HighSegmentIndices > 0 {
-			issues = append(issues, fmt.Sprintf("High Segment Count: %d indices with >50 segments", segmentWarnings.HighSegmentIndices))
+			issues = append(issues, fmt.Sprintf("High Segment Count: %d indices with high segment counts (threshold varies by cluster size)", segmentWarnings.HighSegmentIndices))
 		}
 		if segmentWarnings.SmallSegmentIndices > 0 {
 			issues = append(issues, fmt.Sprintf("Small Segments: %d indices with avg segment size <1MB", segmentWarnings.SmallSegmentIndices))
@@ -230,7 +255,7 @@ func (f *CheckFormatter) getCategorizedRecommendations(clusterHealth *models.Clu
 
 	if segmentWarnings != nil {
 		if segmentWarnings.HighSegmentIndices > 0 {
-			recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("Consider force merge for %d indices with high segment counts (>50 segments)", segmentWarnings.HighSegmentIndices))
+			recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("Consider force merge for %d indices with high segment counts (threshold varies by cluster size)", segmentWarnings.HighSegmentIndices))
 		}
 		if segmentWarnings.SmallSegmentIndices > 0 {
 			recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("Run force merge on %d indices with small segments (<1MB avg) to improve query performance", segmentWarnings.SmallSegmentIndices))

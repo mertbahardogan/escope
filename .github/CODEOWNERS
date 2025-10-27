@@ -1,0 +1,5 @@
+# Default CODEOWNERS for this repository
+# This file defines who owns the code and can be automatically requested for review
+
+# All code in this repository
+* @mertbahardogan @erayarslan

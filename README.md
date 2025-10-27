@@ -369,35 +369,3 @@ escope config current
 escope config timeout          # View current timeout
 escope config timeout 10       # Set timeout to 10 seconds
 ```
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on how to contribute to this project.
-
-### Quick Start for Contributors
-
-1. **Fork the repository** on GitHub
-2. **Create a feature branch**: `git checkout -b feat/your-feature-name`
-3. **Make your changes** and test them
-4. **Run the test suite**: `make test-commands` (mandatory)
-5. **Submit a pull request**
-
-### Development Workflow
-
-- Always create feature branches (`feat/`, `fix/`, `docs/`)
-- Run `make test-commands` before submitting any changes
-- Follow our coding standards and commit message format
-- Update documentation for new features
-
-For more details, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Check existing issues for solutions
-- Create an issue on GitHub
-- Review the documentation

@@ -154,7 +154,11 @@ func runIndexDetail(indexName string, topMode bool) {
 func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexDetailFormatter, indexName string, checkCount *int) {
 	*checkCount++
 
-	fmt.Print("\033[2J\033[H")
+	if *checkCount == constants.FirstCheckCount {
+		fmt.Print(constants.ANSIClearScreen)
+	} else {
+		fmt.Printf(constants.ANSIMoveUpFormat, constants.IndexDetailLineCount)
+	}
 
 	detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
 		return indexService.GetIndexDetailInfo(context.Background(), indexName)

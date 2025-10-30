@@ -84,6 +84,10 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 
 	var basicInfo models.IndexDetailInfo
 	basicInfo.Name = indexName
+	basicInfo.SearchRate = constants.DashString
+	basicInfo.IndexRate = constants.DashString
+	basicInfo.AvgQueryTime = constants.DashString
+	basicInfo.AvgIndexTime = constants.DashString
 	currentTime := time.Now()
 
 	if indices, ok := statsData["indices"].(map[string]interface{}); ok {
@@ -114,6 +118,10 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 						if queryDelta > 0 {
 							searchRate := float64(queryDelta) / timeDelta
 							basicInfo.SearchRate = s.formatRate(searchRate)
+
+							queryTimeDelta := currentQueryTime - prevSnapshot.QueryTime
+							avgQueryTime := float64(queryTimeDelta) / float64(queryDelta)
+							basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, avgQueryTime)
 						} else {
 							basicInfo.SearchRate = constants.DashString
 						}
@@ -121,24 +129,13 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 						if indexDelta > 0 {
 							indexRate := float64(indexDelta) / timeDelta
 							basicInfo.IndexRate = s.formatRate(indexRate)
+
+							indexTimeDelta := currentIndexTime - prevSnapshot.IndexTime
+							avgIndexTime := float64(indexTimeDelta) / float64(indexDelta)
+							basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, avgIndexTime)
 						} else {
 							basicInfo.IndexRate = constants.DashString
 						}
-						if currentQueryTotal > 0 {
-							basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentQueryTime)/float64(currentQueryTotal))
-						}
-						if currentIndexTotal > 0 {
-							basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentIndexTime)/float64(currentIndexTotal))
-						}
-					}
-				} else {
-					basicInfo.SearchRate = constants.CalculatingString
-					basicInfo.IndexRate = constants.CalculatingString
-					if currentQueryTotal > 0 {
-						basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentQueryTime)/float64(currentQueryTotal))
-					}
-					if currentIndexTotal > 0 {
-						basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentIndexTime)/float64(currentIndexTotal))
 					}
 				}
 				newSnapshot := &models.IndexStatsSnapshot{

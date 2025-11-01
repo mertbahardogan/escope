@@ -39,7 +39,7 @@ var nodeDistCmd = &cobra.Command{
 
 		nodeNameToIP := make(map[string]string)
 		for _, shard := range shards {
-			if shard.Node != "" && shard.IP != "" && shard.IP != "-" {
+			if shard.Node != "" && shard.IP != "" && shard.IP != constants.DashString {
 				nodeNameToIP[shard.Node] = shard.IP
 			}
 		}

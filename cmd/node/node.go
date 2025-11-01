@@ -47,37 +47,37 @@ var nodeCmd = &cobra.Command{
 				}
 			}
 
-			roles := "-"
+			roles := constants.DashString
 			if len(filteredRoles) > 0 {
 				roles = strings.Join(filteredRoles, ",")
 			}
 
-			name := "-"
+			name := constants.DashString
 			if node.Name != "" {
 				name = node.Name
 			}
 
-			memPercent := "-"
+			memPercent := constants.DashString
 			if node.MemPercent != "" {
 				memPercent = node.MemPercent
 			}
 
-			diskPercent := "-"
+			diskPercent := constants.DashString
 			if node.DiskPercent != "" {
 				diskPercent = node.DiskPercent
 			}
 
-			diskTotal := "-"
+			diskTotal := constants.DashString
 			if node.DiskTotal != "" {
 				diskTotal = node.DiskTotal
 			}
 
-			heapUsed := "-"
+			heapUsed := constants.DashString
 			if node.HeapUsed != "" {
 				heapUsed = node.HeapUsed
 			}
 
-			heapMax := "-"
+			heapMax := constants.DashString
 			if node.HeapMax != "" {
 				heapMax = node.HeapMax
 			}

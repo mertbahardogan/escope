@@ -191,10 +191,6 @@ const (
 	SLMPrefix        = "slm"
 	TransformPrefix  = "transform"
 
-	TruncateSuffix = "..."
-	MaxNameLength  = 6
-	NamePrefixLen  = 2
-
 	ThousandDivisor       = 1000
 	HundredMultiplier     = 100
 	DocsCountSeparator    = 3

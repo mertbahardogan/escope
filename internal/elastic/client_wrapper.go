@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/util"
 	"io"
@@ -141,7 +142,7 @@ func (cw *ClientWrapper) GetIndices(ctx context.Context) (map[string]interface{}
 		indexName := util.GetStringField(idx, "index")
 		alias := indexAliases[indexName]
 		if alias == "" {
-			alias = "-"
+			alias = constants.DashString
 		}
 
 		processedIndex := map[string]interface{}{
@@ -361,7 +362,7 @@ func (cw *ClientWrapper) GetIndicesWithSort(ctx context.Context, sortBy, sortOrd
 		indexName := util.GetStringField(idx, "index")
 		alias := indexAliases[indexName]
 		if alias == "" {
-			alias = "-"
+			alias = constants.DashString
 		}
 
 		processedIndex := map[string]interface{}{
@@ -436,7 +437,7 @@ func (cw *ClientWrapper) GetShardsWithSort(ctx context.Context, sortBy, sortOrde
 
 func (cw *ClientWrapper) GetAnalyze(ctx context.Context, analyzerName, text string, analyzeType string) (map[string]interface{}, error) {
 	var requestBody map[string]interface{}
-	
+
 	if analyzeType == "analyzer" {
 		requestBody = map[string]interface{}{
 			"analyzer": analyzerName,

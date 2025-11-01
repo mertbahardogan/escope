@@ -1,12 +1,13 @@
 package models
 
 import (
+	"github.com/mertbahardogan/escope/internal/constants"
 	"strconv"
 	"strings"
 )
 
 func ParseSize(sizeStr string) int64 {
-	if sizeStr == "" || sizeStr == "-" {
+	if sizeStr == "" || sizeStr == constants.DashString {
 		return 0
 	}
 

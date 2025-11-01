@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/mertbahardogan/escope/internal/constants"
 	"strings"
 )
 
@@ -39,7 +40,7 @@ func (f *GenericTableFormatter) FormatTable(headers []string, rows [][]string) s
 		var b strings.Builder
 		b.WriteString("+")
 		for _, w := range widths {
-			b.WriteString(strings.Repeat("-", w+2))
+			b.WriteString(strings.Repeat(constants.DashString, w+2))
 			b.WriteString("+")
 		}
 		b.WriteString("\n")
@@ -109,7 +110,7 @@ func (f *GenericTableFormatter) FormatReport(title string, sections []ReportSect
 	}
 
 	buildBorder := func() string {
-		return "+" + strings.Repeat("-", maxWidth+2) + "+\n"
+		return "+" + strings.Repeat(constants.DashString, maxWidth+2) + "+\n"
 	}
 
 	output.WriteString(buildBorder())

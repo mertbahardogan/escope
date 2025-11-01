@@ -74,7 +74,7 @@ func runIndexList() {
 	rows := make([][]string, 0, len(filteredIndices))
 
 	for _, index := range filteredIndices {
-		docsCount := "-"
+		docsCount := constants.DashString
 		if index.DocsCount != "" {
 			if count, err := strconv.ParseInt(index.DocsCount, 10, 64); err == nil {
 				docsCount = util.FormatDocsCount(count)

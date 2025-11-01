@@ -56,7 +56,7 @@ var distributionCmd = &cobra.Command{
 		}
 		nodeShards := make(map[string][]models.ShardInfo)
 		for _, s := range shards {
-			if s.State != "STARTED" || s.IP == "-" || util.IsSystemIndex(s.Index) {
+			if s.State != "STARTED" || s.IP == constants.DashString || util.IsSystemIndex(s.Index) {
 				continue
 			}
 			nodeShards[s.IP] = append(nodeShards[s.IP], s)

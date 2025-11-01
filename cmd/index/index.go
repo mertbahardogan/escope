@@ -74,7 +74,7 @@ func runIndexList() {
 	rows := make([][]string, 0, len(filteredIndices))
 
 	for _, index := range filteredIndices {
-		docsCount := "-"
+		docsCount := constants.DashString
 		if index.DocsCount != "" {
 			if count, err := strconv.ParseInt(index.DocsCount, 10, 64); err == nil {
 				docsCount = util.FormatDocsCount(count)
@@ -126,6 +126,19 @@ func runIndexDetail(indexName string, topMode bool) {
 			}
 		}
 	} else {
+		_, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
+			return indexService.GetIndexDetailInfo(context.Background(), indexName)
+		})
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				fmt.Printf("Index detail fetch failed: %s\n", constants.MsgTimeoutGeneric)
+			} else {
+				fmt.Printf("Index detail fetch failed: %v\n", err)
+			}
+			return
+		}
+		time.Sleep(2 * time.Second)
+
 		detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
 			return indexService.GetIndexDetailInfo(context.Background(), indexName)
 		})
@@ -154,7 +167,11 @@ func runIndexDetail(indexName string, topMode bool) {
 func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexDetailFormatter, indexName string, checkCount *int) {
 	*checkCount++
 
-	fmt.Print("\033[2J\033[H")
+	if *checkCount == constants.FirstCheckCount {
+		fmt.Print(constants.ANSIClearScreen)
+	} else {
+		fmt.Printf(constants.ANSIMoveUpFormat, constants.IndexDetailLineCount)
+	}
 
 	detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
 		return indexService.GetIndexDetailInfo(context.Background(), indexName)

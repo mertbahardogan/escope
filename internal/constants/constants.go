@@ -115,7 +115,6 @@ const (
 	PrimaryShortString = "p"
 	ReplicaShortString = "r"
 	ZeroByteString     = "0b"
-	CalculatingString  = "Calculating..."
 	HealthyString      = "healthy"
 	WarningString      = "warning"
 	PrimaryString      = "Primary"
@@ -165,12 +164,12 @@ const (
 
 	// Format strings
 	PercentFormat    = "%.0f%%"
-	RateFormatK      = "%.1fK/s"
-	RateFormat       = "%.1f/s"
-	RateFormat2      = "%.2f/s"
-	TimeFormatMS     = "%.1fms"
-	TimeFormatS      = "%.1fs"
-	MSFormat         = "%dms"
+	RateFormatK      = "%.1f K/s"
+	RateFormat       = "%.1f /s"
+	RateFormat2      = "%.2f /s"
+	TimeFormatMS     = "%.1f ms"
+	TimeFormatS      = "%.1f s"
+	MSFormat         = "%d ms"
 	GCFreqFormat     = "%.1f GC/sec"
 	ThroughputFormat = "%.1f%%"
 
@@ -192,16 +191,17 @@ const (
 	SLMPrefix        = "slm"
 	TransformPrefix  = "transform"
 
-	// Truncate settings
-	TruncateSuffix = "..."
-	MaxNameLength  = 6
-	NamePrefixLen  = 2
-
-	// Misc numeric values
 	ThousandDivisor       = 1000
 	HundredMultiplier     = 100
 	DocsCountSeparator    = 3
 	TenThreshold          = 10
 	ZeroPercentString     = "0%"
 	MillisecondsToSeconds = 1000
+
+	ANSIClearScreen  = "\033[2J\033[H" // Clear screen and move cursor to home
+	ANSIClearLineEnd = "\033[K"        // Clear from cursor to end of line
+	ANSIMoveUpFormat = "\033[%dA\r"    // Move cursor up N lines and return to start
+
+	FirstCheckCount      = 1
+	IndexDetailLineCount = 5
 )

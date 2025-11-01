@@ -275,7 +275,7 @@ func displayIndexTable(data interface{}) {
 	rows := make([][]string, 0, len(indices))
 
 	for _, index := range indices {
-		docsCount := "-"
+		docsCount := constants.DashString
 		if index.DocsCount != "" {
 			if count, err := strconv.ParseInt(index.DocsCount, 10, 64); err == nil {
 				docsCount = util.FormatDocsCount(count)

@@ -82,16 +82,6 @@ func GetStringField(data map[string]interface{}, key string) string {
 	return ""
 }
 
-func FormatNodeName(name string) string {
-	if name == constants.EmptyString {
-		return constants.DashString
-	}
-	if len(name) > constants.MaxNameLength {
-		return name[:constants.NamePrefixLen] + constants.TruncateSuffix + name[len(name)-constants.NamePrefixLen:]
-	}
-	return name
-}
-
 func SortShardsByTypeAndIndex(shards []models.ShardInfo) {
 	if len(shards) == 0 {
 		return

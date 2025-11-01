@@ -193,26 +193,20 @@ escope index sort docs
 # Get single snapshot of index performance metrics
 escope index --name my-index
 # Output:
-# ┌─────────────────────────────────────────────────┐
-# │ my-index                                        │
-# ├─────────────────────────────────────────────────┤
-# │ Search Rate: Calculating...                     │
-# │ Index Rate: Calculating...                      │
-# │ Query Time: 15.2ms                              │
-# │ Index Time: 8.5ms                               │
-# └─────────────────────────────────────────────────┘
+#
+# Search Rate: -
+# Index Rate: -
+# Query Time: 15.2 ms
+# Index Time: 8.5 ms
 
 # Real-time monitoring (updates every 2 seconds)
 escope index --name my-index --top
-# Output (refreshes continuously):
-# ┌─────────────────────────────────────────────────┐
-# │ my-index | Check 5                              │
-# ├─────────────────────────────────────────────────┤
-# │ Search Rate: 125.5/s                            │
-# │ Index Rate: 45.2/s                              │
-# │ Query Time: 12.8ms                              │
-# │ Index Time: 22.1ms                              │
-# └─────────────────────────────────────────────────┘
+# Output (refreshes continuously without flicker):
+#
+# Search Rate: 125.5 /s
+# Index Rate: 45.2 /s
+# Query Time: 12.8 ms
+# Index Time: 22.1 ms
 ```
 
 ### Garbage Collection Monitoring

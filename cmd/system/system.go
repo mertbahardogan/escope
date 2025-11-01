@@ -69,7 +69,7 @@ func runSystemIndex(ctx context.Context, systemService services.SystemService) {
 			continue
 		}
 
-		alias := "-"
+		alias := constants.DashString
 		if idx.Alias != "" {
 			alias = idx.Alias
 		}

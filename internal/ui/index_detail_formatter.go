@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/mertbahardogan/escope/internal/constants"
 )
 
 type IndexDetailFormatter struct{}
@@ -11,24 +12,13 @@ func NewIndexDetailFormatter() *IndexDetailFormatter {
 }
 
 func (f *IndexDetailFormatter) FormatIndexDetail(info *IndexDetailInfo) string {
-	genericFormatter := NewGenericTableFormatter()
-
-	var headerText string
-	if info.CheckCount > 0 {
-		headerText = fmt.Sprintf("%s | Check %d", info.Name, info.CheckCount)
-	} else {
-		headerText = info.Name
-	}
-
-	headers := []string{headerText}
-	rows := [][]string{
-		{fmt.Sprintf("Search Rate: %s", info.SearchRate)},
-		{fmt.Sprintf("Index Rate: %s", info.IndexRate)},
-		{fmt.Sprintf("Query Time: %s", info.AvgQueryTime)},
-		{fmt.Sprintf("Index Time: %s", info.AvgIndexTime)},
-	}
-
-	return genericFormatter.FormatTable(headers, rows)
+	var output string
+	output += "\n"
+	output += fmt.Sprintf("Search Rate: %s%s\n", info.SearchRate, constants.ANSIClearLineEnd)
+	output += fmt.Sprintf("Index Rate: %s%s\n", info.IndexRate, constants.ANSIClearLineEnd)
+	output += fmt.Sprintf("Query Time: %s%s\n", info.AvgQueryTime, constants.ANSIClearLineEnd)
+	output += fmt.Sprintf("Index Time: %s%s\n", info.AvgIndexTime, constants.ANSIClearLineEnd)
+	return output
 }
 
 type IndexDetailInfo struct {

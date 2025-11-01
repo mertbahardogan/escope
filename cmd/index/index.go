@@ -126,6 +126,19 @@ func runIndexDetail(indexName string, topMode bool) {
 			}
 		}
 	} else {
+		_, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
+			return indexService.GetIndexDetailInfo(context.Background(), indexName)
+		})
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				fmt.Printf("Index detail fetch failed: %s\n", constants.MsgTimeoutGeneric)
+			} else {
+				fmt.Printf("Index detail fetch failed: %v\n", err)
+			}
+			return
+		}
+		time.Sleep(2 * time.Second)
+
 		detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
 			return indexService.GetIndexDetailInfo(context.Background(), indexName)
 		})

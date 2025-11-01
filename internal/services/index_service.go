@@ -137,6 +137,13 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 							basicInfo.IndexRate = constants.DashString
 						}
 					}
+				} else {
+					if currentQueryTotal > 0 {
+						basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentQueryTime)/float64(currentQueryTotal))
+					}
+					if currentIndexTotal > 0 {
+						basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentIndexTime)/float64(currentIndexTotal))
+					}
 				}
 				newSnapshot := &models.IndexStatsSnapshot{
 					IndexName:  indexName,

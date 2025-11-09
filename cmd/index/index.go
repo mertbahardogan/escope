@@ -28,6 +28,13 @@ var (
 	topMode   bool
 )
 
+type IndexMetrics struct {
+	SearchRate   string
+	IndexRate    string
+	AvgQueryTime string
+	AvgIndexTime string
+}
+
 var indexCmd = &cobra.Command{
 	Use:                "index",
 	Short:              "Show index summary information",
@@ -45,6 +52,21 @@ var indexCmd = &cobra.Command{
 
 		runIndexList()
 	},
+}
+
+func getIndexMetricsWithSnapshot(indexService services.IndexService, indexName string) (*models.IndexDetailInfo, error) {
+	_, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
+		return indexService.GetIndexDetailInfo(context.Background(), indexName)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	time.Sleep(2 * time.Second)
+
+	return util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
+		return indexService.GetIndexDetailInfo(context.Background(), indexName)
+	})
 }
 
 func runIndexList() {
@@ -70,7 +92,27 @@ func runIndexList() {
 		}
 	}
 
-	headers := []string{"Health", "Status", "Primary", "Replica", "Docs", "Size", "Alias", "Index"}
+	metricsMap := make(map[string]IndexMetrics)
+	for _, idx := range filteredIndices {
+		detail, err := getIndexMetricsWithSnapshot(indexService, idx.Name)
+		if err == nil {
+			metricsMap[idx.Name] = IndexMetrics{
+				SearchRate:   detail.SearchRate,
+				IndexRate:    detail.IndexRate,
+				AvgQueryTime: detail.AvgQueryTime,
+				AvgIndexTime: detail.AvgIndexTime,
+			}
+		} else {
+			metricsMap[idx.Name] = IndexMetrics{
+				SearchRate:   constants.DashString,
+				IndexRate:    constants.DashString,
+				AvgQueryTime: constants.DashString,
+				AvgIndexTime: constants.DashString,
+			}
+		}
+	}
+
+	headers := []string{"Health", "Status", "Primary", "Replica", "Docs", "Size", "Alias", "Index", "Search Rate", "Index Rate", "Query Time", "Index Time"}
 	rows := make([][]string, 0, len(filteredIndices))
 
 	for _, index := range filteredIndices {
@@ -83,6 +125,7 @@ func runIndexList() {
 			}
 		}
 
+		metrics := metricsMap[index.Name]
 		row := []string{
 			index.Health,
 			index.Status,
@@ -92,6 +135,10 @@ func runIndexList() {
 			index.StoreSize,
 			index.Alias,
 			index.Name,
+			metrics.SearchRate,
+			metrics.IndexRate,
+			metrics.AvgQueryTime,
+			metrics.AvgIndexTime,
 		}
 		rows = append(rows, row)
 	}
@@ -126,22 +173,7 @@ func runIndexDetail(indexName string, topMode bool) {
 			}
 		}
 	} else {
-		_, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
-			return indexService.GetIndexDetailInfo(context.Background(), indexName)
-		})
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				fmt.Printf("Index detail fetch failed: %s\n", constants.MsgTimeoutGeneric)
-			} else {
-				fmt.Printf("Index detail fetch failed: %v\n", err)
-			}
-			return
-		}
-		time.Sleep(2 * time.Second)
-
-		detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
-			return indexService.GetIndexDetailInfo(context.Background(), indexName)
-		})
+		detailInfo, err := getIndexMetricsWithSnapshot(indexService, indexName)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				fmt.Printf("Index detail fetch failed: %s\n", constants.MsgTimeoutGeneric)

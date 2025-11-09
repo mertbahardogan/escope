@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"github.com/mertbahardogan/escope/internal/connection"
 	"github.com/mertbahardogan/escope/internal/constants"
@@ -26,28 +25,12 @@ var RootCmd = &cobra.Command{
 		return validateConfig(cmd)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		client := connection.GetClient()
-		if client == nil {
-			fmt.Println(constants.ErrNoConfigurationFound)
-			fmt.Println(constants.MsgPleaseSetConfiguration)
-			return
-		}
-		res, err := client.Ping(client.Ping.WithContext(context.Background()))
-		if err != nil {
-			fmt.Printf(constants.ErrConnectionFailed+"\n", err)
-			return
-		}
-		defer res.Body.Close()
-		if res.IsError() {
-			fmt.Printf(constants.ErrConnectionFailedResponse+"\n", res.String())
-			return
-		}
-		fmt.Println(constants.MsgConnectionSuccessful)
+		cmd.Help()
 	},
 }
 
 func validateConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "config" || cmd.Name() == "clear" ||
+	if cmd.Name() == "escope" || cmd.Name() == "config" || cmd.Name() == "clear" ||
 		(cmd.Parent() != nil && cmd.Parent().Name() == "config") {
 		return nil
 	}

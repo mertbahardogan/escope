@@ -57,3 +57,31 @@ type SegmentWarnings struct {
 	SmallSegmentIndices int
 	LargeSegmentIndices int
 }
+
+type ScaleWarnings struct {
+	OverScaledIndices []OverScaledIndex
+	WarningIssues     []string
+}
+
+type OverScaledIndex struct {
+	Name           string
+	PrimaryShards  int
+	ReplicaShards  int
+	TotalShards    int
+	IndexSize      int64
+	DocCount       int64
+	SearchRate     float64
+	IndexRate      float64
+	WarningType    string
+	WarningMessage string
+	Recommendation ShardRecommendation
+	Severity       string
+}
+
+type ShardRecommendation struct {
+	Recommended   int
+	MinAcceptable int
+	MaxAcceptable int
+	Confidence    float64
+	Reasoning     string
+}

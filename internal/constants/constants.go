@@ -132,6 +132,42 @@ const (
 	LowMemoryPressure     = 60
 	MediumMemoryPressure  = 80
 
+	// Replica thresholds
+	OptimalReplicaCount       = 2 // Optimal replica count
+	MaxAcceptableReplicaCount = 3 // Maximum acceptable without warning
+
+	// Rate-based thresholds for dynamic shard recommendations
+	LowRateThreshold      = 10.0   // requests/sec - low traffic
+	MediumRateThreshold   = 100.0  // requests/sec - medium traffic
+	HighRateThreshold     = 1000.0 // requests/sec - high traffic
+	VeryHighRateThreshold = 5000.0 // requests/sec - very high traffic
+
+	// Document count based thresholds
+	MinDocsPerShard     = 1000000  // 1M docs minimum per shard
+	OptimalDocsPerShard = 10000000 // 10M docs optimal per shard
+	MaxDocsPerShard     = 50000000 // 50M docs maximum per shard
+
+	// Scoring weights for hybrid recommendation (must sum to 1.0)
+	SizeWeight     = 0.5 // Weight for size-based calculation
+	TrafficWeight  = 0.3 // Weight for traffic-based calculation
+	DocCountWeight = 0.2 // Weight for document count calculation
+
+	// Acceptable range flexibility (as percentage)
+	AcceptableRangeFlexibility = 0.4 // ±40% from recommended is acceptable
+
+	// Severity thresholds (deviation percentage from recommended)
+	SeverityCriticalThreshold = 100.0 // >100% deviation
+	SeverityHighThreshold     = 60.0  // 60-100% deviation
+	SeverityMediumThreshold   = 40.0  // 40-60% deviation
+	SeverityLowThreshold      = 30.0  // 30-40% deviation
+
+	// Confidence thresholds
+	HighConfidence   = 0.8 // High confidence in recommendation
+	MediumConfidence = 0.5 // Medium confidence
+
+	// Minimum index size to check (ignore very small indices)
+	MinIndexSizeForCheck = 1 * BytesInGB // 1GB minimum
+
 	// Byte conversion constants
 	BytesInKB = 1024
 	BytesInMB = 1024 * 1024
@@ -144,25 +180,20 @@ const (
 	ConfigFilePath        = ".escope.yaml"
 	ConfigFileEnvPath     = "$HOME/.escope.yaml"
 
-	// GC collector names
-	GCYoung        = "young"
-	GCOld          = "old"
-	GCSurvivor     = "survivor"
-	GCG1Concurrent = "G1 Concurrent GC"
-
-	// GC fields
+	GCYoung                     = "young"
+	GCOld                       = "old"
+	GCSurvivor                  = "survivor"
+	GCG1Concurrent              = "G1 Concurrent GC"
 	GCField                     = "gc"
 	CollectorsField             = "collectors"
 	CollectionCountField        = "collection_count"
 	CollectionTimeInMillisField = "collection_time_in_millis"
 	PoolsField                  = "pools"
 
-	// Memory pressure levels
 	MemoryPressureLow    = "Low"
 	MemoryPressureMedium = "Medium"
 	MemoryPressureHigh   = "High"
 
-	// Format strings
 	PercentFormat    = "%.0f%%"
 	RateFormatK      = "%.1f K/s"
 	RateFormat       = "%.1f /s"
@@ -173,14 +204,12 @@ const (
 	GCFreqFormat     = "%.1f GC/sec"
 	ThroughputFormat = "%.1f%%"
 
-	// Size unit suffixes
 	ByteSuffix = "b"
 	KiloSuffix = "kb"
 	MegaSuffix = "mb"
 	GigaSuffix = "gb"
 	TeraSuffix = "tb"
 
-	// System index prefixes
 	DotPrefix        = "."
 	KibanaPrefix     = "kibana"
 	APMPrefix        = "apm"
@@ -204,4 +233,19 @@ const (
 
 	FirstCheckCount      = 1
 	IndexDetailLineCount = 5
+
+	ScaleStateOverScaled      = "OVER-SCALED"
+	ScaleStateUnderScaled     = "UNDER-SCALED"
+	ScaleStateOverReplicated  = "OVER-REPLICATED"
+	ScaleStateUnderReplicated = "UNDER-REPLICATED"
+
+	WarningTypeOverScaled      = "over-scaled"
+	WarningTypeUnderScaled     = "under-scaled"
+	WarningTypeOverReplicated  = "over-replicated"
+	WarningTypeUnderReplicated = "under-replicated"
+
+	RecommendationCategoryShard   = "SHARD"
+	RecommendationCategoryIndex   = "INDEX"
+	RecommendationCategoryNode    = "NODE"
+	RecommendationCategoryGeneral = "GENERAL"
 )

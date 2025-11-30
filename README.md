@@ -96,7 +96,7 @@ escope config get prod
 
 # Switch to a different host
 escope config switch dev
-# Output: Switched to host 'dev'. All commands will now use this host.
+# Output: Switched to host 'dev'.
 
 # Show currently active host
 escope config current

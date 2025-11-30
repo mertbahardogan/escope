@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/models"
 )
 
@@ -21,8 +22,9 @@ func (f *CheckFormatter) FormatCheckReport(
 	performance *models.Performance,
 	nodeBreakdown *models.NodeBreakdown,
 	segmentWarnings *models.SegmentWarnings,
+	scaleWarnings *models.ScaleWarnings,
 ) string {
-	title := "ESCOPE CLUSTER CHECK ANALYSIS"
+	title := "ESCOPE CLUSTER ANALYSIS"
 
 	var sections []ReportSection
 
@@ -34,7 +36,7 @@ func (f *CheckFormatter) FormatCheckReport(
 		})
 	}
 
-	warningIssues := f.getWarningIssues(clusterHealth, shardHealth, shardWarnings, indexHealths, nodeHealths, resourceUsage, segmentWarnings)
+	warningIssues := f.getWarningIssues(clusterHealth, shardHealth, shardWarnings, indexHealths, nodeHealths, resourceUsage, segmentWarnings, scaleWarnings)
 	if len(warningIssues) > 0 {
 		sections = append(sections, ReportSection{
 			Title: "WARNING ISSUES: " + fmt.Sprintf("%d", len(warningIssues)),
@@ -87,7 +89,7 @@ func (f *CheckFormatter) FormatCheckReport(
 		})
 	}
 
-	recommendations := f.getCategorizedRecommendations(clusterHealth, shardHealth, shardWarnings, indexHealths, nodeHealths, resourceUsage, segmentWarnings)
+	recommendations := f.getCategorizedRecommendations(clusterHealth, shardHealth, shardWarnings, indexHealths, nodeHealths, resourceUsage, segmentWarnings, scaleWarnings)
 
 	if len(recommendations["SHARD"]) > 0 {
 		sections = append(sections, ReportSection{
@@ -114,6 +116,14 @@ func (f *CheckFormatter) FormatCheckReport(
 		sections = append(sections, ReportSection{
 			Title: "GENERAL",
 			Items: recommendations["GENERAL"],
+		})
+	}
+
+	if scaleWarnings != nil && len(scaleWarnings.OverScaledIndices) > 0 {
+		scaleItems := f.formatScaleAnalysis(scaleWarnings)
+		sections = append(sections, ReportSection{
+			Title: "SCALE ANALYSIS",
+			Items: scaleItems,
 		})
 	}
 
@@ -155,7 +165,7 @@ func (f *CheckFormatter) getCriticalIssues(clusterHealth *models.ClusterInfo, sh
 	return issues
 }
 
-func (f *CheckFormatter) getWarningIssues(clusterHealth *models.ClusterInfo, shardHealth *models.ShardHealth, shardWarnings *models.ShardWarnings, indexHealths []models.IndexHealth, nodeHealths []models.CheckNodeHealth, resourceUsage *models.ResourceUsage, segmentWarnings *models.SegmentWarnings) []string {
+func (f *CheckFormatter) getWarningIssues(clusterHealth *models.ClusterInfo, shardHealth *models.ShardHealth, shardWarnings *models.ShardWarnings, indexHealths []models.IndexHealth, nodeHealths []models.CheckNodeHealth, resourceUsage *models.ResourceUsage, segmentWarnings *models.SegmentWarnings, scaleWarnings *models.ScaleWarnings) []string {
 	var issues []string
 
 	if clusterHealth.RelocatingShards > 0 {
@@ -188,7 +198,7 @@ func (f *CheckFormatter) getWarningIssues(clusterHealth *models.ClusterInfo, sha
 
 	yellowIndices := 0
 	for _, idx := range indexHealths {
-		if idx.Health == "yellow" {
+		if idx.Health == constants.HealthYellow {
 			yellowIndices++
 		}
 	}
@@ -219,69 +229,162 @@ func (f *CheckFormatter) getWarningIssues(clusterHealth *models.ClusterInfo, sha
 		}
 	}
 
+	if scaleWarnings != nil && len(scaleWarnings.OverScaledIndices) > 0 {
+		issues = append(issues, fmt.Sprintf("Scale Issues: %d indices", len(scaleWarnings.OverScaledIndices)))
+	}
+
 	return issues
 }
 
-func (f *CheckFormatter) getCategorizedRecommendations(clusterHealth *models.ClusterInfo, shardHealth *models.ShardHealth, shardWarnings *models.ShardWarnings, indexHealths []models.IndexHealth, nodeHealths []models.CheckNodeHealth, resourceUsage *models.ResourceUsage, segmentWarnings *models.SegmentWarnings) map[string][]string {
+func (f *CheckFormatter) getCategorizedRecommendations(clusterHealth *models.ClusterInfo, shardHealth *models.ShardHealth, shardWarnings *models.ShardWarnings, indexHealths []models.IndexHealth, nodeHealths []models.CheckNodeHealth, resourceUsage *models.ResourceUsage, segmentWarnings *models.SegmentWarnings, scaleWarnings *models.ScaleWarnings) map[string][]string {
 	recommendations := make(map[string][]string)
-	recommendations["SHARD"] = []string{}
-	recommendations["INDEX"] = []string{}
-	recommendations["NODE"] = []string{}
-	recommendations["GENERAL"] = []string{}
+	recommendations[constants.RecommendationCategoryShard] = []string{}
+	recommendations[constants.RecommendationCategoryIndex] = []string{}
+	recommendations[constants.RecommendationCategoryNode] = []string{}
+	recommendations[constants.RecommendationCategoryGeneral] = []string{}
 
 	if clusterHealth.UnassignedShards > 0 {
-		recommendations["SHARD"] = append(recommendations["SHARD"], fmt.Sprintf("Investigate unassigned shards (%d) - check cluster allocation settings", clusterHealth.UnassignedShards))
+		recommendations[constants.RecommendationCategoryShard] = append(recommendations[constants.RecommendationCategoryShard], fmt.Sprintf("Investigate unassigned shards (%d) - check cluster allocation settings", clusterHealth.UnassignedShards))
 	}
 	if clusterHealth.RelocatingShards > 0 {
-		recommendations["SHARD"] = append(recommendations["SHARD"], fmt.Sprintf("Monitor shard relocation progress (%d) - ensure completion", clusterHealth.RelocatingShards))
+		recommendations[constants.RecommendationCategoryShard] = append(recommendations[constants.RecommendationCategoryShard], fmt.Sprintf("Monitor shard relocation progress (%d) - ensure completion", clusterHealth.RelocatingShards))
 	}
 
 	yellowIndices := 0
 	for _, idx := range indexHealths {
-		if idx.Health == "yellow" {
+		if idx.Health == constants.HealthYellow {
 			yellowIndices++
 		}
 	}
 	if yellowIndices > 0 {
-		recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("Review yellow indices (%d) - check replica settings and node availability", yellowIndices))
+		recommendations[constants.RecommendationCategoryIndex] = append(recommendations[constants.RecommendationCategoryIndex], fmt.Sprintf("Review yellow indices (%d) - check replica settings and node availability", yellowIndices))
 	}
 	if resourceUsage != nil && resourceUsage.DiskTotal > 0 {
 		diskUsed := resourceUsage.DiskTotal - resourceUsage.DiskAvailable
 		diskPercent := float64(diskUsed) * 100 / float64(resourceUsage.DiskTotal)
 		if diskPercent > 85 {
-			recommendations["INDEX"] = append(recommendations["INDEX"], "Consider index lifecycle management for disk usage optimization")
+			recommendations[constants.RecommendationCategoryIndex] = append(recommendations[constants.RecommendationCategoryIndex], "Consider index lifecycle management for disk usage optimization")
 		}
 	}
 
 	if segmentWarnings != nil {
 		if segmentWarnings.HighSegmentIndices > 0 {
-			recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("Consider force merge for %d indices with high segment counts (threshold varies by cluster size)", segmentWarnings.HighSegmentIndices))
+			recommendations[constants.RecommendationCategoryIndex] = append(recommendations[constants.RecommendationCategoryIndex], fmt.Sprintf("Consider force merge for %d indices with high segment counts (threshold varies by cluster size)", segmentWarnings.HighSegmentIndices))
 		}
 		if segmentWarnings.SmallSegmentIndices > 0 {
-			recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("Run force merge on %d indices with small segments (<1MB avg) to improve query performance", segmentWarnings.SmallSegmentIndices))
+			recommendations[constants.RecommendationCategoryIndex] = append(recommendations[constants.RecommendationCategoryIndex], fmt.Sprintf("Run force merge on %d indices with small segments (<1MB avg) to improve query performance", segmentWarnings.SmallSegmentIndices))
 		}
 		if segmentWarnings.LargeSegmentIndices > 0 {
-			recommendations["INDEX"] = append(recommendations["INDEX"], fmt.Sprintf("%d indices have large segments (>1GB) - good for performance", segmentWarnings.LargeSegmentIndices))
+			recommendations[constants.RecommendationCategoryIndex] = append(recommendations[constants.RecommendationCategoryIndex], fmt.Sprintf("%d indices have large segments (>1GB) - good for performance", segmentWarnings.LargeSegmentIndices))
 		}
 	}
 
 	for _, node := range nodeHealths {
 		if node.HeapUsage > 75 {
-			recommendations["NODE"] = append(recommendations["NODE"], fmt.Sprintf("Consider heap tuning for %s - current usage %.1f%% (threshold: 75%%)", node.Name, node.HeapUsage))
+			recommendations[constants.RecommendationCategoryNode] = append(recommendations[constants.RecommendationCategoryNode], fmt.Sprintf("Consider heap tuning for %s - current usage %.1f%% (threshold: 75%%)", node.Name, node.HeapUsage))
 		}
 	}
 	if resourceUsage != nil && resourceUsage.HeapUsage > 75 {
-		recommendations["NODE"] = append(recommendations["NODE"], fmt.Sprintf("Monitor cluster heap usage - current %.1f%% (threshold: 75%%)", resourceUsage.HeapUsage))
+		recommendations[constants.RecommendationCategoryNode] = append(recommendations[constants.RecommendationCategoryNode], fmt.Sprintf("Monitor cluster heap usage - current %.1f%% (threshold: 75%%)", resourceUsage.HeapUsage))
 	}
 
-	recommendations["GENERAL"] = append(recommendations["GENERAL"], "Performance metrics are within acceptable ranges.")
-	recommendations["GENERAL"] = append(recommendations["GENERAL"], "Consider implementing monitoring alerts for thresholds.")
+	recommendations[constants.RecommendationCategoryGeneral] = append(recommendations[constants.RecommendationCategoryGeneral], "Performance metrics are within acceptable ranges.")
+	recommendations[constants.RecommendationCategoryGeneral] = append(recommendations[constants.RecommendationCategoryGeneral], "Consider implementing monitoring alerts for thresholds.")
 
 	if shardWarnings != nil {
 		for _, rec := range shardWarnings.Recommendations {
-			recommendations["GENERAL"] = append(recommendations["GENERAL"], rec)
+			recommendations[constants.RecommendationCategoryGeneral] = append(recommendations[constants.RecommendationCategoryGeneral], rec)
 		}
 	}
 
 	return recommendations
+}
+
+func (f *CheckFormatter) formatScaleAnalysis(scaleWarnings *models.ScaleWarnings) []string {
+	var items []string
+
+	// Format all as warnings (no severity grouping)
+	for _, idx := range scaleWarnings.OverScaledIndices {
+		items = f.appendScaleItem(items, idx)
+	}
+
+	return items
+}
+
+func (f *CheckFormatter) appendScaleItem(items []string, idx models.OverScaledIndex) []string {
+	var scaleState string
+	switch idx.WarningType {
+	case constants.WarningTypeOverScaled:
+		scaleState = constants.ScaleStateOverScaled
+	case constants.WarningTypeUnderScaled:
+		scaleState = constants.ScaleStateUnderScaled
+	case constants.WarningTypeOverReplicated:
+		scaleState = constants.ScaleStateOverReplicated
+	case constants.WarningTypeUnderReplicated:
+		scaleState = constants.ScaleStateUnderReplicated
+	default:
+		scaleState = "UNKNOWN"
+	}
+
+	items = append(items, fmt.Sprintf("• %s - %s [WARNING]", idx.Name, scaleState))
+
+	// Current configuration
+	items = append(items, fmt.Sprintf("  Current: %dP-%dR (%d total shards)",
+		idx.PrimaryShards, idx.ReplicaShards, idx.TotalShards))
+
+	// Show size and doc count if available
+	if idx.IndexSize > 0 {
+		sizeGB := float64(idx.IndexSize) / float64(constants.BytesInGB)
+		items = append(items, fmt.Sprintf("  Size: %.2f GB", sizeGB))
+
+		// Show per-shard size
+		if idx.PrimaryShards > 0 {
+			perShardGB := sizeGB / float64(idx.PrimaryShards)
+			items = append(items, fmt.Sprintf("  Per Shard: %.2f GB", perShardGB))
+		}
+	}
+	if idx.DocCount > 0 {
+		items = append(items, fmt.Sprintf("  Documents: %s", f.formatNumber(idx.DocCount)))
+	}
+
+	// Show traffic if available
+	if idx.SearchRate > 0 || idx.IndexRate > 0 {
+		items = append(items, fmt.Sprintf("  Traffic: %.1f search/s, %.1f index/s",
+			idx.SearchRate, idx.IndexRate))
+	}
+
+	// Show recommendation
+	if idx.Recommendation.Recommended > 0 {
+		confidenceLabel := "LOW"
+		if idx.Recommendation.Confidence >= constants.HighConfidence {
+			confidenceLabel = "HIGH"
+		} else if idx.Recommendation.Confidence >= constants.MediumConfidence {
+			confidenceLabel = "MEDIUM"
+		}
+
+		items = append(items, fmt.Sprintf("  Recommended: %d primary shards (range: %d-%d) [%s confidence]",
+			idx.Recommendation.Recommended,
+			idx.Recommendation.MinAcceptable,
+			idx.Recommendation.MaxAcceptable,
+			confidenceLabel)) //todo: öneri vermeyelim
+
+		if idx.Recommendation.Reasoning != "" {
+			items = append(items, fmt.Sprintf("  Reason: %s", idx.Recommendation.Reasoning))
+		}
+	}
+
+	items = append(items, "")
+
+	return items
+}
+
+func (f *CheckFormatter) formatNumber(n int64) string {
+	if n >= 1000000000 {
+		return fmt.Sprintf("%.2fB", float64(n)/1000000000)
+	} else if n >= 1000000 {
+		return fmt.Sprintf("%.2fM", float64(n)/1000000)
+	} else if n >= 1000 {
+		return fmt.Sprintf("%.2fK", float64(n)/1000)
+	}
+	return fmt.Sprintf("%d", n)
 }

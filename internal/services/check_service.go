@@ -478,7 +478,8 @@ func (s *checkService) GetScaleWarningsCheck(ctx context.Context) (*models.Scale
 
 	trafficRatesMap := s.parseAllIndexTrafficRates(allStatsData)
 
-	nodeCount := s.getNodeCount(ctx)
+	nodesData, _ := s.client.GetNodes(ctx)
+	nodeCount := getNodeCount(nodesData)
 
 	if indicesList, ok := indicesData[constants.EmptyString].([]map[string]interface{}); ok {
 		for _, index := range indicesList {
@@ -693,19 +694,6 @@ func (s *checkService) buildRecommendationReasoning(
 	return "Based on " + fmt.Sprintf("%s", reasons[0])
 }
 
-func (s *checkService) getNodeCount(ctx context.Context) int {
-	nodes, err := s.client.GetNodes(ctx)
-	if err != nil || nodes == nil {
-		return 0
-	}
-
-	if nodesMap, ok := nodes["nodes"].(map[string]interface{}); ok {
-		return len(nodesMap)
-	}
-
-	return 0
-}
-
 func (s *checkService) processIndexForScale(
 	index map[string]interface{},
 	trafficRatesMap map[string]indexTrafficRates,
@@ -738,7 +726,7 @@ func (s *checkService) processIndexForScale(
 	totalShards := primaryShards * (replicaShards + 1)
 
 	// Get index size and doc count from stats
-	indexSize, docCount := s.getIndexSizeAndDocCount(indexName, allStatsData)
+	indexSize, docCount := getIndexSizeAndDocCount(indexName, allStatsData)
 
 	// Skip very small indices (less than 1GB)
 	if indexSize < constants.MinIndexSizeForCheck {
@@ -833,41 +821,6 @@ func (s *checkService) processIndexForScale(
 	}
 }
 
-func (s *checkService) getIndexSizeAndDocCount(indexName string, allStatsData map[string]interface{}) (int64, int64) {
-	if allStatsData == nil {
-		return 0, 0
-	}
-
-	indices, ok := allStatsData["indices"].(map[string]interface{})
-	if !ok {
-		return 0, 0
-	}
-
-	indexData, ok := indices[indexName].(map[string]interface{})
-	if !ok {
-		return 0, 0
-	}
-
-	var indexSize int64
-	var docCount int64
-
-	// Get size from primaries
-	if primaries, ok := indexData["primaries"].(map[string]interface{}); ok {
-		if store, ok := primaries["store"].(map[string]interface{}); ok {
-			if sizeInBytes, ok := store["size_in_bytes"].(float64); ok {
-				indexSize = int64(sizeInBytes)
-			}
-		}
-		if docs, ok := primaries["docs"].(map[string]interface{}); ok {
-			if count, ok := docs["count"].(float64); ok {
-				docCount = int64(count)
-			}
-		}
-	}
-
-	return indexSize, docCount
-}
-
 func (s *checkService) confidenceLabel(confidence float64) string {
 	if confidence >= constants.HighConfidence {
 		return "HIGH"
@@ -884,57 +837,16 @@ func (s *checkService) parseAllIndexTrafficRates(statsData map[string]interface{
 		return result
 	}
 
-	if indices, ok := statsData["indices"].(map[string]interface{}); ok {
-		for indexName, indexDataRaw := range indices {
-			if indexData, ok := indexDataRaw.(map[string]interface{}); ok {
-				if total, ok := indexData["total"].(map[string]interface{}); ok {
-					var queryTotal, queryTimeMs, indexTotal, indexTimeMs float64
+	indexStats := parseIndexStatsData(statsData)
+	for indexName, total := range indexStats {
+		queryTotal, queryTimeMs, indexTotal, indexTimeMs := extractTrafficMetrics(total)
 
-					if search, ok := total["search"].(map[string]interface{}); ok {
-						if qt, ok := search["query_total"].(float64); ok {
-							queryTotal = qt
-						}
-						if qtm, ok := search["query_time_in_millis"].(float64); ok {
-							queryTimeMs = qtm
-						}
-					}
+		searchRate := calculateTrafficRate(queryTotal, queryTimeMs)
+		indexRate := calculateTrafficRate(indexTotal, indexTimeMs)
 
-					if indexing, ok := total["indexing"].(map[string]interface{}); ok {
-						if it, ok := indexing["index_total"].(float64); ok {
-							indexTotal = it
-						}
-						if itm, ok := indexing["index_time_in_millis"].(float64); ok {
-							indexTimeMs = itm
-						}
-					}
-
-					var searchRate, indexRate float64
-
-					if queryTotal > 0 && queryTimeMs > 0 {
-						searchRate = queryTotal / (queryTimeMs / 1000)
-						if searchRate > 1000000 {
-							searchRate = queryTotal / 86400
-						}
-					} else if queryTotal > 0 {
-						searchRate = queryTotal / 3600
-					}
-
-					// Calculate index rate
-					if indexTotal > 0 && indexTimeMs > 0 {
-						indexRate = indexTotal / (indexTimeMs / 1000)
-						if indexRate > 1000000 {
-							indexRate = indexTotal / 86400
-						}
-					} else if indexTotal > 0 {
-						indexRate = indexTotal / 3600
-					}
-
-					result[indexName] = indexTrafficRates{
-						searchRate: searchRate,
-						indexRate:  indexRate,
-					}
-				}
-			}
+		result[indexName] = indexTrafficRates{
+			searchRate: searchRate,
+			indexRate:  indexRate,
 		}
 	}
 

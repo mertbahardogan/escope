@@ -65,11 +65,12 @@ func (s *indexService) GetLuceneStats(ctx context.Context) ([]models.LuceneStats
 	indexStats := parseIndexStatsData(statsData)
 
 	for indexName, total := range indexStats {
-		if segments, ok := getSegmentsData(total); ok {
-			if indexing, ok := getIndexingData(total); ok {
-				stats := parseLuceneStats(indexName, segments, indexing)
-				luceneStats = append(luceneStats, stats)
-			}
+		segments, hasSegments := getSegmentsData(total)
+		indexing, hasIndexing := getIndexingData(total)
+
+		if hasSegments && hasIndexing {
+			stats := parseLuceneStats(indexName, segments, indexing)
+			luceneStats = append(luceneStats, stats)
 		}
 	}
 

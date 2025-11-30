@@ -2,7 +2,6 @@ package index
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/mertbahardogan/escope/cmd/core"
 	"github.com/mertbahardogan/escope/cmd/sort"
@@ -76,12 +75,7 @@ func runIndexList() {
 	indices, err := util.ExecuteWithTimeout(func() ([]models.IndexInfo, error) {
 		return indexService.GetAllIndexInfos(context.Background())
 	})
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			fmt.Printf("Index info fetch failed: %s\n", constants.MsgTimeoutGeneric)
-		} else {
-			fmt.Printf("Index info fetch failed: %v\n", err)
-		}
+	if util.HandleServiceErrorWithReturn(err, "Index info fetch") {
 		return
 	}
 
@@ -174,12 +168,7 @@ func runIndexDetail(indexName string, topMode bool) {
 		}
 	} else {
 		detailInfo, err := getIndexMetricsWithSnapshot(indexService, indexName)
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				fmt.Printf("Index detail fetch failed: %s\n", constants.MsgTimeoutGeneric)
-			} else {
-				fmt.Printf("Index detail fetch failed: %v\n", err)
-			}
+		if util.HandleServiceErrorWithReturn(err, "Index detail fetch") {
 			return
 		}
 
@@ -208,12 +197,7 @@ func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexD
 	detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
 		return indexService.GetIndexDetailInfo(context.Background(), indexName)
 	})
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			fmt.Printf("Index detail fetch failed: %s\n", constants.MsgTimeoutGeneric)
-		} else {
-			fmt.Printf("Index detail fetch failed: %v\n", err)
-		}
+	if util.HandleServiceErrorWithReturn(err, "Index detail fetch") {
 		return
 	}
 

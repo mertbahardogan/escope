@@ -143,8 +143,6 @@ func runSystemShard(ctx context.Context, systemService services.SystemService) {
 		return
 	}
 
-	fmt.Println("# System Shards:")
-
 	headers := []string{"Shard", "Type", "State", "Size", "Node IP", "Index"}
 	rows := make([][]string, 0, len(shards))
 

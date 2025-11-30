@@ -2,7 +2,6 @@ package check
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/mertbahardogan/escope/cmd/core"
 	"github.com/mertbahardogan/escope/internal/connection"
@@ -45,52 +44,52 @@ func runSingleCheck(ctx context.Context, checkService services.CheckService, for
 	clusterHealth, err := util.ExecuteWithTimeout(func() (*models.ClusterInfo, error) {
 		return checkService.GetClusterHealthCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Cluster health check")
 
 	nodeHealths, err := util.ExecuteWithTimeout(func() ([]models.CheckNodeHealth, error) {
 		return checkService.GetNodeHealthCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Node health check")
 
 	shardHealth, err := util.ExecuteWithTimeout(func() (*models.ShardHealth, error) {
 		return checkService.GetShardHealthCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Shard health check")
 
 	shardWarnings, err := util.ExecuteWithTimeout(func() (*models.ShardWarnings, error) {
 		return checkService.GetShardWarningsCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Shard warnings check")
 
 	indexHealths, err := util.ExecuteWithTimeout(func() ([]models.IndexHealth, error) {
 		return checkService.GetIndexHealthCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Index health check")
 
 	resourceUsage, err := util.ExecuteWithTimeout(func() (*models.ResourceUsage, error) {
 		return checkService.GetResourceUsageCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Resource usage check")
 
 	performance, err := util.ExecuteWithTimeout(func() (*models.Performance, error) {
 		return checkService.GetPerformanceCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Performance check")
 
 	nodeBreakdown, err := util.ExecuteWithTimeout(func() (*models.NodeBreakdown, error) {
 		return checkService.GetNodeBreakdown(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Node breakdown check")
 
 	segmentWarnings, err := util.ExecuteWithTimeout(func() (*models.SegmentWarnings, error) {
 		return checkService.GetSegmentWarningsCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Segment warnings check")
 
 	scaleWarnings, err := util.ExecuteWithTimeout(func() (*models.ScaleWarnings, error) {
 		return checkService.GetScaleWarningsCheck(ctx)
 	})
-	logServiceError(err, context.DeadlineExceeded, constants.MsgTimeoutGeneric)
+	util.HandleServiceError(err, "Scale warnings check")
 
 	output := formatter.FormatCheckReport(
 		clusterHealth,
@@ -105,17 +104,6 @@ func runSingleCheck(ctx context.Context, checkService services.CheckService, for
 		scaleWarnings,
 	)
 	fmt.Print(output)
-}
-
-func logServiceError(err error, ctxErr error, msg string) {
-	if err != nil {
-		if errors.Is(err, ctxErr) {
-			fmt.Printf("Failed to get: %s\n", msg)
-		} else {
-			fmt.Printf("Failed to get: %v\n", err)
-		}
-		return
-	}
 }
 
 func runContinuousCheck(ctx context.Context, client interfaces.ElasticClient, checkService services.CheckService, formatter *ui.CheckFormatter) {

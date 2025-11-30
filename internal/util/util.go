@@ -82,6 +82,23 @@ func GetStringField(data map[string]interface{}, key string) string {
 	return ""
 }
 
+func GetIntField(data map[string]interface{}, key string) int {
+	if value, ok := data[key]; ok {
+		if num, ok := value.(float64); ok {
+			return int(num)
+		}
+		if num, ok := value.(int); ok {
+			return num
+		}
+		if str, ok := value.(string); ok {
+			if num, err := strconv.Atoi(str); err == nil {
+				return num
+			}
+		}
+	}
+	return 0
+}
+
 func SortShardsByTypeAndIndex(shards []models.ShardInfo) {
 	if len(shards) == 0 {
 		return

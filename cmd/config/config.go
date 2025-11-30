@@ -154,7 +154,7 @@ var configSwitchCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Switched to host '%s'. All commands will now use this host.\n", alias)
+		fmt.Printf("Switched to host '%s'.\n", alias)
 	},
 }
 

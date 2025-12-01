@@ -24,6 +24,7 @@ type CheckService interface {
 	GetNodeBreakdown(ctx context.Context) (*models.NodeBreakdown, error)
 	GetSegmentWarningsCheck(ctx context.Context) (*models.SegmentWarnings, error)
 	GetScaleWarningsCheck(ctx context.Context) (*models.ScaleWarnings, error)
+	GetIndicesWithoutAliasInfo(ctx context.Context) ([]string, error)
 }
 
 type checkService struct {
@@ -252,6 +253,7 @@ func (s *checkService) GetIndexHealthCheck(ctx context.Context) ([]models.IndexH
 					Status:    util.GetStringField(index, constants.StatusField),
 					Docs:      util.GetStringField(index, constants.DocsCountField),
 					Size:      util.GetStringField(index, constants.StoreSizeField),
+					Alias:     util.GetStringField(index, constants.AliasField),
 				}
 				indexHealths = append(indexHealths, health)
 			}
@@ -880,4 +882,45 @@ func parseNodeHealth(nodeID string, node map[string]interface{}) models.CheckNod
 	}
 
 	return health
+}
+
+func (s *checkService) GetIndicesWithoutAliasInfo(ctx context.Context) ([]string, error) {
+	indicesData, err := s.client.GetIndices(ctx)
+	if err != nil {
+		return nil, fmt.Errorf(constants.ErrIndicesRequestFailed, err)
+	}
+
+	var indicesWithoutAlias []string
+
+	if indicesList, ok := indicesData[constants.EmptyString].([]map[string]interface{}); ok {
+		for _, index := range indicesList {
+			indexName := util.GetStringField(index, constants.IndexField)
+			alias := util.GetStringField(index, constants.AliasField)
+
+			if util.IsSystemIndex(indexName) {
+				continue
+			}
+
+			if alias == constants.EmptyString || alias == constants.DashString {
+				indicesWithoutAlias = append(indicesWithoutAlias, indexName)
+			}
+		}
+	} else if indicesList, ok := indicesData[constants.EmptyString].([]interface{}); ok {
+		for _, indexData := range indicesList {
+			if index, ok := indexData.(map[string]interface{}); ok {
+				indexName := util.GetStringField(index, constants.IndexField)
+				alias := util.GetStringField(index, constants.AliasField)
+
+				if util.IsSystemIndex(indexName) {
+					continue
+				}
+
+				if alias == constants.EmptyString || alias == constants.DashString {
+					indicesWithoutAlias = append(indicesWithoutAlias, indexName)
+				}
+			}
+		}
+	}
+
+	return indicesWithoutAlias, nil
 }

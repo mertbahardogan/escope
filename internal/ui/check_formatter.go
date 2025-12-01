@@ -23,6 +23,7 @@ func (f *CheckFormatter) FormatCheckReport(
 	nodeBreakdown *models.NodeBreakdown,
 	segmentWarnings *models.SegmentWarnings,
 	scaleWarnings *models.ScaleWarnings,
+	indicesWithoutAlias []string,
 ) string {
 	title := "ESCOPE CLUSTER ANALYSIS"
 
@@ -86,6 +87,18 @@ func (f *CheckFormatter) FormatCheckReport(
 		sections = append(sections, ReportSection{
 			Title: "PERFORMANCE METRICS",
 			Items: performanceItems,
+		})
+	}
+
+	if len(indicesWithoutAlias) > 0 {
+		var aliasInfoItems []string
+		aliasInfoItems = append(aliasInfoItems, fmt.Sprintf("Total: %d", len(indicesWithoutAlias)))
+		for _, indexName := range indicesWithoutAlias {
+			aliasInfoItems = append(aliasInfoItems, indexName)
+		}
+		sections = append(sections, ReportSection{
+			Title: "INDICES WITHOUT ALIAS",
+			Items: aliasInfoItems,
 		})
 	}
 

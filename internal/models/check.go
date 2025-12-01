@@ -25,6 +25,7 @@ type IndexHealth struct {
 	Status    string
 	Docs      string
 	Size      string
+	Alias     string
 }
 
 type ResourceUsage struct {

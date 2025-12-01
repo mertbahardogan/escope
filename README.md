@@ -5,11 +5,10 @@
 
 - ⚙️ **Configuration Management** - Save, view, and manage connection settings
 - 🔍 **Cluster Health Monitoring** - Quick health status overview with detailed node information
-- 📊 **Node Information** - Detailed node metrics and health summary
+- 📊 **Node Monitoring** - Detailed node metrics and health summary
 - 🗑️ **Garbage Collection Analysis** - JVM heap monitoring and GC performance metrics per node
-- 📁 **Index Management** - Index health, status, and statistics with alias support (system indices filtered)
-- 📊 **Index Monitoring** - Real-time index monitoring with search/index rates and performance metrics
-- 🗂️ **Shard Analysis** - Shard distribution and unassigned shard details (system indices filtered)
+- 📊 **Index Monitoring** - Index health, status, and statistics with alias support, real-time index monitoring with search/index rates and performance metrics
+- 🗂️ **Shard Monitoring** - Shard distribution and unassigned shard details (system indices filtered)
 - 🔄 **Smart Sorting** - Sort shards and indices by any field with automatic type detection
 - 🛡️ **System Index Filtering** - Automatically hides Elasticsearch system indices
 - 🔧 **System Information Access** - Dedicated commands for viewing system indices and shards
@@ -20,8 +19,6 @@
 
 - **Go 1.24.0+** - Required for building and running the application
 - **Elasticsearch 7.0.0+** - Compatible with Elasticsearch versions 7.0.0 and above (including 9.0+)
-- **Network Access** - Access to your Elasticsearch cluster endpoints
-- **Authentication** - Valid credentials for your Elasticsearch cluster (if authentication is enabled)
 
 ## Installation
 
@@ -54,21 +51,32 @@ escope
 
 ## Command Reference
 
-| Command | Sub-commands                                                     | Description |
-|---------|------------------------------------------------------------------|-------------|
-| `escope` | `--host`, `--username`, `--password`, `--secure`, `--alias`      | Root command - connection health check and configuration validation |
-| `escope config` | `list`, `get`, `delete`, `switch`, `current`, `clear`, `timeout` | Multi-host configuration management with alias support and timeout settings |
-| `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring |
-| `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics |
-| `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis |
-| `escope index` | `--name=<index>`, `--top`, `system`, `sort`                      | Index management, status, detailed monitoring, and system indices (filtered by default) |
-| `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards |
-| `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag) |
-| `escope segments` | -                                                                | Segment count and size analysis per index |
-| `escope analyze` | `[analyzer_name] [text] --type`                                  | Analyze text using Elasticsearch analyzer or tokenizer |
-| `escope termvectors` | `[index] [document_id] [term] --fields`                        | Analyze term vectors and search for specific terms in document fields |
+| Command | Sub-commands                                                     | Description                                                                           |
+|---------|------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| `escope` | `--host`, `--username`, `--password`, `--secure`, `--alias`      | Root command - connection health check and configuration validation                   |
+| `escope config` | `list`, `get`, `delete`, `switch`, `current`, `clear`, `timeout` | Multi-host configuration management with alias support and timeout settings           |
+| `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring  |
+| `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics                      |
+| `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis       |
+| `escope index` | `--name=<index>`, `--top`, `system`, `sort`                      | Index status, detailed monitoring, and system indices (filtered by default) |
+| `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards                                  |
+| `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag)              |
+| `escope segments` | -                                                                | Segment count and size analysis per index                                             |
+| `escope analyze` | `[analyzer_name] [text] --type`                                  | Analyze text using Elasticsearch analyzer or tokenizer                                |
+| `escope termvectors` | `[index] [document_id] [term] --fields`                        | Analyze term vectors and search for specific terms in document fields                 |
 
-## Configuration
+## Examples
+
+### Quick Start
+```bash
+# 1. Set up connection
+escope config --alias local --host="http://localhost:9200" --username="elastic" --password="password" --secure
+
+# 2. Test connection
+escope
+```
+
+### Configuration Management
 
 The tool automatically saves connection settings to local with multi-host alias support:
 
@@ -120,22 +128,11 @@ escope config timeout 10
 # Output: Connection timeout set to 10 seconds
 ```
 
-## Examples
-
-### Quick Start
+### Cluster Analysis
 ```bash
-# 1. Set up connection
-escope config --alias local --host="http://localhost:9200" --username="elastic" --password="password" --secure
-
-# 2. Test connection
-escope
-
-# 3. Check cluster health
+# View cluster overview
 escope cluster
-```
 
-### Health Monitoring
-```bash
 # Single comprehensive health check
 escope check
 
@@ -144,39 +141,15 @@ escope check --duration 5m
 
 # High-frequency monitoring (1-second intervals)
 escope check --duration 10m --interval 1s
-```
-
-### Cluster Analysis
-```bash
-# View cluster overview
-escope cluster
 
 # Check node health and metrics
 escope node
-
-# Show garbage collection info for all nodes
-escope node gc
-
-# Show detailed GC info for specific node
-escope node gc --name=data-node-1
-
-# Analyze shard distribution
-escope shard
-
-# View shard distribution across nodes
-escope shard dist
 ```
 
-### Index Management
+### Index Monitoring
 ```bash
 # List all indices (system indices filtered)
 escope index
-
-# Show detailed information for a specific index
-escope index --name my-index
-
-# Monitor index in real-time (like top command)
-escope index --name my-index --top
 
 # Show system indices
 escope index system
@@ -184,12 +157,6 @@ escope index system
 # Sort indices by size (largest first)
 escope index sort size
 
-# Sort indices by document count
-escope index sort docs
-```
-
-### Index Monitoring
-```bash
 # Get single snapshot of index performance metrics
 escope index --name my-index
 # Output:
@@ -257,13 +224,16 @@ escope node dist
 #   Memory Pressure: Medium
 ```
 
-### Shard Analysis
+### Shard Monitoring
 ```bash
 # View shard status
 escope shard
 
 # Show system shards
 escope shard system
+
+# View shard distribution across nodes
+escope shard dist
 
 # Sort shards by size
 escope shard sort size
@@ -342,24 +312,4 @@ escope termvectors my-index doc123 --fields content,title
 escope termvectors my-index doc123 "term" --fields content,title
 # Output:
 # [Shows search results for the specific term in the document]
-```
-
-### Configuration Management
-```bash
-# Add multiple hosts
-escope config --alias prod --host="http://localhost:9200" --username="admin" --password="secret" --secure
-escope config --alias dev --host="http://localhost:9200"
-
-# List all configurations
-escope config list
-
-# Switch between hosts
-escope config switch prod
-
-# View current configuration
-escope config current
-
-# Manage timeout settings
-escope config timeout          # View current timeout
-escope config timeout 10       # Set timeout to 10 seconds
 ```

@@ -91,6 +91,11 @@ func runSingleCheck(ctx context.Context, checkService services.CheckService, for
 	})
 	util.HandleServiceError(err, "Scale warnings check")
 
+	indicesWithoutAlias, err := util.ExecuteWithTimeout(func() ([]string, error) {
+		return checkService.GetIndicesWithoutAliasInfo(ctx)
+	})
+	util.HandleServiceError(err, "Indices without alias check")
+
 	output := formatter.FormatCheckReport(
 		clusterHealth,
 		nodeHealths,
@@ -102,6 +107,7 @@ func runSingleCheck(ctx context.Context, checkService services.CheckService, for
 		nodeBreakdown,
 		segmentWarnings,
 		scaleWarnings,
+		indicesWithoutAlias,
 	)
 	fmt.Print(output)
 }

@@ -306,10 +306,44 @@ escope analyze whitespace "Hello World Test" --type tokenizer
 # Analyze term vectors for a document
 escope termvectors my-index doc123 --fields content,title
 # Output:
-# [Shows term vector analysis for the document]
+# TERM VECTORS SUMMARY
+# ─────────────────────
+# Total Terms: 12
+# Fields Analyzed: 2
+# Highest Frequency: 5
+#
+# FIELD BREAKDOWN
+# ────────────────
+#    • content: 8 terms
+#    • title: 4 terms
+#
+# Field: content (8 terms)
+# +----------------+-----------+
+# | Term           | Frequency |
+# +----------------+-----------+
+# | elasticsearch  | 5         |
+# | search         | 3         |
+# | data           | 2         |
+# | index          | 2         |
+# +----------------+-----------+
+#
+# Field: title (4 terms)
+# +----------------+-----------+
+# | Term           | Frequency |
+# +----------------+-----------+
+# | guide          | 1         |
+# | elasticsearch  | 1         |
+# +----------------+-----------+
 
 # Search for specific term in document fields
-escope termvectors my-index doc123 "term" --fields content,title
+escope termvectors my-index doc123 "elasticsearch" --fields content,title
 # Output:
-# [Shows search results for the specific term in the document]
+# SEARCH TERM FOUND!
+#
+# ------- term: elasticsearch -------
+#
+#  Field            │ Frequency
+# ─────────────────────────────────────
+#  content          │ 5
+#  title            │ 1
 ```

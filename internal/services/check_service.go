@@ -90,6 +90,30 @@ func (s *checkService) GetClusterHealthCheck(ctx context.Context) (*models.Clust
 		health.InitializingShards = int(initializingShards)
 	}
 
+	if delayedUnassignedShards, ok := healthData[constants.DelayedUnassignedShardsField].(float64); ok {
+		health.DelayedUnassignedShards = int(delayedUnassignedShards)
+	}
+
+	if numberOfPendingTasks, ok := healthData[constants.NumberOfPendingTasksField].(float64); ok {
+		health.NumberOfPendingTasks = int(numberOfPendingTasks)
+	}
+
+	if numberOfInFlightFetch, ok := healthData[constants.NumberOfInFlightFetchField].(float64); ok {
+		health.NumberOfInFlightFetch = int(numberOfInFlightFetch)
+	}
+
+	if taskMaxWaitingInQueueMillis, ok := healthData[constants.TaskMaxWaitingInQueueField].(float64); ok {
+		health.TaskMaxWaitingInQueueMillis = int(taskMaxWaitingInQueueMillis)
+	}
+
+	if activeShardsPercentAsNumber, ok := healthData[constants.ActiveShardsPercentField].(float64); ok {
+		health.ActiveShardsPercentAsNumber = activeShardsPercentAsNumber
+	}
+
+	if timedOut, ok := healthData[constants.TimedOutField].(bool); ok {
+		health.TimedOut = timedOut
+	}
+
 	return health, nil
 }
 

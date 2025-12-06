@@ -1,6 +1,12 @@
 # escope - Elasticsearch CLI Tool
 
+[![Version](https://img.shields.io/github/v/release/mertbahardogan/escope)](https://github.com/mertbahardogan/escope/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/mertbahardogan/escope.svg)](https://pkg.go.dev/github.com/mertbahardogan/escope)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/mertbahardogan/escope)](https://goreportcard.com/report/github.com/mertbahardogan/escope)
+
 **escope** is a powerful CLI tool developed for **diagnostics** and **monitoring** of your **Elasticsearch** cluster. 🚀
+
 ## Features
 
 - ⚙️ **Configuration Management** - Save, view, and manage connection settings
@@ -26,9 +32,7 @@
 go install github.com/mertbahardogan/escope@latest
 ```
 
-After running the installation command, ensure your Go bin directory is included in your system's PATH so you can run `escope` from any location.
-
-Once installed, **escope** is ready to use. If no configuration exists, the tool will provide helpful setup instructions when you first run it.
+- After running the installation command, ensure your Go bin directory is included in your system's PATH so you can run `escope` from any location.
 
 ## Quick Start
 

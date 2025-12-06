@@ -20,12 +20,12 @@ func NewClusterFormatter() *ClusterFormatter {
 func (f *ClusterFormatter) FormatClusterStats(stats *models.ClusterStats) string {
 	var output strings.Builder
 
-	output.WriteString(fmt.Sprintf("Cluster: %s (%s)\n\n", stats.ClusterName, stats.Status))
+	output.WriteString(fmt.Sprintf("\nCluster: %s (%s)\n\n", stats.ClusterName, stats.Status))
 
 	usedDisk := stats.TotalDiskBytes - stats.AvailableDiskBytes
 	resourceHeaders := []string{"Resource", "Used", "Total", "Usage %"}
 	resourceRows := [][]string{
-		{"Storage", util.FormatBytes(usedDisk), util.FormatBytes(stats.TotalDiskBytes), fmt.Sprintf("%.1f%%", stats.DiskUsagePercent)},
+		{"Disk Storage", util.FormatBytes(usedDisk), util.FormatBytes(stats.TotalDiskBytes), fmt.Sprintf("%.1f%%", stats.DiskUsagePercent)},
 		{"Heap Memory", util.FormatBytes(stats.UsedHeapBytes), util.FormatBytes(stats.TotalHeapBytes), fmt.Sprintf("%.1f%%", stats.HeapUsagePercent)},
 		{"System Memory", util.FormatBytes(stats.UsedMemoryBytes), util.FormatBytes(stats.TotalMemoryBytes), fmt.Sprintf("%.1f%%", stats.MemoryUsagePercent)},
 	}

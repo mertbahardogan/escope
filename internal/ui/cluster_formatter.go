@@ -2,18 +2,24 @@ package ui
 
 import (
 	"fmt"
-	"github.com/mertbahardogan/escope/internal/models"
-	"github.com/mertbahardogan/escope/internal/util"
 	"strings"
+
+	"github.com/mertbahardogan/escope/internal/models"
+	"github.com/mertbahardogan/escope/internal/ui/components"
+	"github.com/mertbahardogan/escope/internal/util"
 )
 
 type ClusterFormatter struct {
-	genericFormatter *GenericTableFormatter
+	table       *components.Table
+	panel       *components.Panel
+	progressBar *components.ProgressBar
 }
 
 func NewClusterFormatter() *ClusterFormatter {
 	return &ClusterFormatter{
-		genericFormatter: NewGenericTableFormatter(),
+		table:       components.NewTable(),
+		panel:       components.NewPanel("RESOURCES"),
+		progressBar: components.NewProgressBar(),
 	}
 }
 
@@ -22,14 +28,7 @@ func (f *ClusterFormatter) FormatClusterStats(stats *models.ClusterStats) string
 
 	output.WriteString(fmt.Sprintf("\nCluster: %s (%s)\n\n", stats.ClusterName, stats.Status))
 
-	usedDisk := stats.TotalDiskBytes - stats.AvailableDiskBytes
-	resourceHeaders := []string{"Resource", "Used", "Total", "Usage %"}
-	resourceRows := [][]string{
-		{"Disk Storage", util.FormatBytes(usedDisk), util.FormatBytes(stats.TotalDiskBytes), fmt.Sprintf("%.1f%%", stats.DiskUsagePercent)},
-		{"Heap Memory", util.FormatBytes(stats.UsedHeapBytes), util.FormatBytes(stats.TotalHeapBytes), fmt.Sprintf("%.1f%%", stats.HeapUsagePercent)},
-		{"System Memory", util.FormatBytes(stats.UsedMemoryBytes), util.FormatBytes(stats.TotalMemoryBytes), fmt.Sprintf("%.1f%%", stats.MemoryUsagePercent)},
-	}
-	output.WriteString(f.genericFormatter.FormatTable(resourceHeaders, resourceRows))
+	output.WriteString(f.formatResourcesPanel(stats))
 	output.WriteString("\n")
 
 	clusterHeaders := []string{"Metric", "Value"}
@@ -41,7 +40,7 @@ func (f *ClusterFormatter) FormatClusterStats(stats *models.ClusterStats) string
 		{"Total Shards", fmt.Sprintf("%d", stats.TotalShards)},
 		{"Avg Shard Size", fmt.Sprintf("%.2f GB", stats.AvgShardSizeGB)},
 	}
-	output.WriteString(f.genericFormatter.FormatTable(clusterHeaders, clusterRows))
+	output.WriteString(f.table.Render(clusterHeaders, clusterRows))
 	output.WriteString("\n")
 
 	jvmVersions := "N/A"
@@ -53,7 +52,27 @@ func (f *ClusterFormatter) FormatClusterStats(stats *models.ClusterStats) string
 		{"ES Version", stats.ESVersion},
 		{"JVM Versions", jvmVersions},
 	}
-	output.WriteString(f.genericFormatter.FormatTable(systemHeaders, systemRows))
+	output.WriteString(f.table.Render(systemHeaders, systemRows))
 
 	return output.String()
+}
+
+func (f *ClusterFormatter) formatResourcesPanel(stats *models.ClusterStats) string {
+	usedDisk := stats.TotalDiskBytes - stats.AvailableDiskBytes
+
+	lines := []string{
+		f.formatResourceLine("DISK", stats.DiskUsagePercent, usedDisk, stats.TotalDiskBytes),
+		f.formatResourceLine("HEAP", stats.HeapUsagePercent, stats.UsedHeapBytes, stats.TotalHeapBytes),
+		f.formatResourceLine("MEMORY", stats.MemoryUsagePercent, stats.UsedMemoryBytes, stats.TotalMemoryBytes),
+	}
+
+	return f.panel.Render(lines)
+}
+
+func (f *ClusterFormatter) formatResourceLine(name string, percent float64, used, total int64) string {
+	bar := f.progressBar.Render(percent)
+	usedStr := util.FormatBytes(used)
+	totalStr := util.FormatBytes(total)
+	return fmt.Sprintf("%-8s %s  %5.1f%%    %8s / %-8s",
+		name, bar, percent, usedStr, totalStr)
 }

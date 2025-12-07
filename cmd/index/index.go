@@ -3,6 +3,9 @@ package index
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/mertbahardogan/escope/cmd/core"
 	"github.com/mertbahardogan/escope/cmd/sort"
 	"github.com/mertbahardogan/escope/cmd/system"
@@ -12,13 +15,8 @@ import (
 	"github.com/mertbahardogan/escope/internal/models"
 	"github.com/mertbahardogan/escope/internal/services"
 	"github.com/mertbahardogan/escope/internal/ui"
+	"github.com/mertbahardogan/escope/internal/ui/tui"
 	"github.com/mertbahardogan/escope/internal/util"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
-
 	"github.com/spf13/cobra"
 )
 
@@ -145,28 +143,13 @@ func runIndexList() {
 func runIndexDetail(indexName string, topMode bool) {
 	client := elastic.NewClientWrapper(connection.GetClient())
 	indexService := services.NewIndexService(client)
-	formatter := ui.NewIndexDetailFormatter()
 
 	if topMode {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-
-		checkCount := 0
-
-		displayIndexDetail(indexService, formatter, indexName, &checkCount)
-
-		for {
-			select {
-			case <-c:
-				return
-			case <-ticker.C:
-				displayIndexDetail(indexService, formatter, indexName, &checkCount)
-			}
+		if err := tui.RunIndexTUI(indexService, indexName); err != nil {
+			fmt.Printf("Error running TUI: %v\n", err)
 		}
 	} else {
+		formatter := ui.NewIndexDetailFormatter()
 		detailInfo, err := getIndexMetricsWithSnapshot(indexService, indexName)
 		if util.HandleServiceErrorWithReturn(err, "Index detail fetch") {
 			return
@@ -183,34 +166,6 @@ func runIndexDetail(indexName string, topMode bool) {
 
 		fmt.Print(formatter.FormatIndexDetail(formatterInfo))
 	}
-}
-
-func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexDetailFormatter, indexName string, checkCount *int) {
-	*checkCount++
-
-	if *checkCount == constants.FirstCheckCount {
-		fmt.Print(constants.ANSIClearScreen)
-	} else {
-		fmt.Printf(constants.ANSIMoveUpFormat, constants.IndexDetailLineCount)
-	}
-
-	detailInfo, err := util.ExecuteWithTimeout(func() (*models.IndexDetailInfo, error) {
-		return indexService.GetIndexDetailInfo(context.Background(), indexName)
-	})
-	if util.HandleServiceErrorWithReturn(err, "Index detail fetch") {
-		return
-	}
-
-	formatterInfo := &ui.IndexDetailInfo{
-		Name:         detailInfo.Name,
-		SearchRate:   detailInfo.SearchRate,
-		IndexRate:    detailInfo.IndexRate,
-		AvgQueryTime: detailInfo.AvgQueryTime,
-		AvgIndexTime: detailInfo.AvgIndexTime,
-		CheckCount:   *checkCount,
-	}
-
-	fmt.Print(formatter.FormatIndexDetail(formatterInfo))
 }
 
 func init() {

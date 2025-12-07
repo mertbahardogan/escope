@@ -2,14 +2,22 @@ package ui
 
 import (
 	"fmt"
-	"github.com/mertbahardogan/escope/internal/constants"
 	"strings"
+
+	"github.com/mertbahardogan/escope/internal/ui/components"
+	"github.com/mertbahardogan/escope/internal/ui/styles"
 )
 
-type GenericTableFormatter struct{}
+type GenericTableFormatter struct {
+	table  *components.Table
+	border styles.Border
+}
 
 func NewGenericTableFormatter() *GenericTableFormatter {
-	return &GenericTableFormatter{}
+	return &GenericTableFormatter{
+		table:  components.NewTable(),
+		border: styles.Default,
+	}
 }
 
 type ReportSection struct {
@@ -18,68 +26,7 @@ type ReportSection struct {
 }
 
 func (f *GenericTableFormatter) FormatTable(headers []string, rows [][]string) string {
-	if len(rows) == 0 {
-		return "No data found\n"
-	}
-
-	var output strings.Builder
-
-	widths := make([]int, len(headers))
-	for i, h := range headers {
-		widths[i] = len(h)
-	}
-	for _, row := range rows {
-		for i, col := range row {
-			if i < len(widths) && len(col) > widths[i] {
-				widths[i] = len(col)
-			}
-		}
-	}
-
-	buildBorder := func() string {
-		var b strings.Builder
-		b.WriteString("+")
-		for _, w := range widths {
-			b.WriteString(strings.Repeat(constants.DashString, w+2))
-			b.WriteString("+")
-		}
-		b.WriteString("\n")
-		return b.String()
-	}
-
-	var fmtBuilder strings.Builder
-	for i, w := range widths {
-		_ = i
-		fmtBuilder.WriteString("| %-")
-		fmtBuilder.WriteString(fmt.Sprintf("%d", w))
-		fmtBuilder.WriteString("s ")
-	}
-	fmtBuilder.WriteString("|\n")
-	rowFmt := fmtBuilder.String()
-
-	output.WriteString(buildBorder())
-
-	headerVals := make([]interface{}, len(headers))
-	for i := range headers {
-		headerVals[i] = headers[i]
-	}
-	output.WriteString(fmt.Sprintf(rowFmt, headerVals...))
-	output.WriteString(buildBorder())
-
-	for _, row := range rows {
-		if len(row) > 0 && strings.ToUpper(row[0]) == "TOTAL" {
-			output.WriteString(buildBorder())
-		}
-
-		vals := make([]interface{}, len(row))
-		for i := range row {
-			vals[i] = row[i]
-		}
-		output.WriteString(fmt.Sprintf(rowFmt, vals...))
-	}
-	output.WriteString(buildBorder())
-
-	return output.String()
+	return f.table.Render(headers, rows)
 }
 
 func (f *GenericTableFormatter) FormatReport(title string, sections []ReportSection) string {
@@ -91,7 +38,7 @@ func (f *GenericTableFormatter) FormatReport(title string, sections []ReportSect
 	for _, section := range sections {
 		allLines = append(allLines, section.Title)
 		for _, item := range section.Items {
-			allLines = append(allLines, "• "+item)
+			allLines = append(allLines, item)
 		}
 		if len(section.Items) > 0 {
 			allLines = append(allLines, "")
@@ -109,32 +56,29 @@ func (f *GenericTableFormatter) FormatReport(title string, sections []ReportSect
 		maxWidth = 80
 	}
 
-	buildBorder := func() string {
-		return "+" + strings.Repeat(constants.DashString, maxWidth+2) + "+\n"
-	}
-
-	output.WriteString(buildBorder())
+	output.WriteString(f.border.BuildLine(maxWidth + 2))
 
 	titlePadding := (maxWidth - len(title)) / 2
 	if titlePadding < 0 {
 		titlePadding = 0
 	}
-	output.WriteString(fmt.Sprintf("| %*s%s%*s |\n", titlePadding, "", title, maxWidth-len(title)-titlePadding, ""))
-	output.WriteString(buildBorder())
+	paddedTitle := fmt.Sprintf("%*s%s%*s", titlePadding, "", title, maxWidth-len(title)-titlePadding, "")
+	output.WriteString(f.border.BuildRow(paddedTitle, maxWidth))
+	output.WriteString(f.border.BuildLine(maxWidth + 2))
 
 	for i, section := range sections {
 		if len(section.Items) > 0 {
 			if i > 0 {
-				output.WriteString(buildBorder())
+				output.WriteString(f.border.BuildLine(maxWidth + 2))
 			}
-			output.WriteString(fmt.Sprintf("| %-*s |\n", maxWidth, section.Title))
-			output.WriteString(fmt.Sprintf("| %-*s |\n", maxWidth, ""))
+			output.WriteString(f.border.BuildRow(section.Title, maxWidth))
+			output.WriteString(f.border.BuildRow("", maxWidth))
 			for _, item := range section.Items {
-				output.WriteString(fmt.Sprintf("| %-*s |\n", maxWidth, "• "+item))
+				output.WriteString(f.border.BuildRow(item, maxWidth))
 			}
 		}
 	}
-	output.WriteString(buildBorder())
+	output.WriteString(f.border.BuildLine(maxWidth + 2))
 
 	return output.String()
 }

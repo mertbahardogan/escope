@@ -26,7 +26,7 @@ func NewClusterFormatter() *ClusterFormatter {
 func (f *ClusterFormatter) FormatClusterStats(stats *models.ClusterStats) string {
 	var output strings.Builder
 
-	output.WriteString(fmt.Sprintf("\nCluster: %s (%s)\n\n", stats.ClusterName, stats.Status))
+	output.WriteString(fmt.Sprintf("\n%s (%s)\n\n", stats.ClusterName, stats.Status))
 
 	output.WriteString(f.formatResourcesPanel(stats))
 	output.WriteString("\n")

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/models"
 	"github.com/mertbahardogan/escope/internal/services"
@@ -116,7 +117,23 @@ func (m ClusterModel) renderHeader() string {
 	if m.stats == nil {
 		return "Cluster: loading..."
 	}
-	return fmt.Sprintf("Cluster: %s (%s)", m.stats.ClusterName, m.stats.Status)
+
+	var badgeStyle lipgloss.Style
+	switch m.stats.Status {
+	case "green":
+		badgeStyle = lipgloss.NewStyle().Background(lipgloss.Color("42")).Foreground(lipgloss.Color("0"))
+	case "yellow":
+		badgeStyle = lipgloss.NewStyle().Background(lipgloss.Color("226")).Foreground(lipgloss.Color("0"))
+	case "red":
+		badgeStyle = lipgloss.NewStyle().Background(lipgloss.Color("196")).Foreground(lipgloss.Color("15"))
+	default:
+		badgeStyle = lipgloss.NewStyle()
+	}
+
+	nameStyle := lipgloss.NewStyle().Bold(true)
+	name := nameStyle.Render(m.stats.ClusterName)
+	badge := badgeStyle.Render(" " + strings.ToUpper(m.stats.Status) + " ")
+	return fmt.Sprintf("Cluster: %s  %s", name, badge)
 }
 
 func (m ClusterModel) renderResources() string {

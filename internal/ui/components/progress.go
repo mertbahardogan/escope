@@ -14,18 +14,6 @@ func NewProgressBar() *ProgressBar {
 	}
 }
 
-func NewProgressBarWithWidth(width int) *ProgressBar {
-	p := styles.DefaultProgress
-	p.Width = width
-	return &ProgressBar{
-		progress: p,
-	}
-}
-
 func (p *ProgressBar) Render(percent float64) string {
 	return p.progress.Render(percent)
-}
-
-func (p *ProgressBar) Width() int {
-	return p.progress.Width
 }

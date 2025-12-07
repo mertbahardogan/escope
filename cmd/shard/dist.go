@@ -12,7 +12,6 @@ import (
 	"github.com/mertbahardogan/escope/internal/ui"
 	"github.com/mertbahardogan/escope/internal/util"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var distributionCmd = &cobra.Command{
@@ -92,18 +91,13 @@ var distributionCmd = &cobra.Command{
 				shardType = "Replica-" + s.Shard
 			}
 
-			indexName := s.Index
-			if strings.HasPrefix(indexName, "search_") {
-				indexName = strings.TrimPrefix(indexName, "search_")
-			}
-
 			nodeName := ipToName[s.IP]
 			if nodeName == "" {
 				nodeName = "unknown"
 			}
 			row := []string{
 				shardType,
-				indexName,
+				s.Index,
 				s.IP,
 				nodeName,
 			}

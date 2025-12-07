@@ -20,6 +20,7 @@
 - 🔧 **System Information Access** - Dedicated commands for viewing system indices and shards
 - 🔬 **Text Analysis** - Analyze text using Elasticsearch analyzers and tokenizers
 - ⏱️ **Configurable Timeout** - 3-second timeout for all external API calls
+- 🖥️ **TUI Support** - Terminal User Interface with progress bars, colored status badges, and real-time charts
 
 ## Requirements
 

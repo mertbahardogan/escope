@@ -156,14 +156,18 @@ func runIndexDetail(indexName string, topMode bool) {
 
 		checkCount := 0
 
-		displayIndexDetail(indexService, formatter, indexName, &checkCount)
+		if !displayIndexDetail(indexService, formatter, indexName, &checkCount) {
+			return
+		}
 
 		for {
 			select {
 			case <-c:
 				return
 			case <-ticker.C:
-				displayIndexDetail(indexService, formatter, indexName, &checkCount)
+				if !displayIndexDetail(indexService, formatter, indexName, &checkCount) {
+					return
+				}
 			}
 		}
 	} else {
@@ -185,7 +189,8 @@ func runIndexDetail(indexName string, topMode bool) {
 	}
 }
 
-func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexDetailFormatter, indexName string, checkCount *int) {
+// displayIndexDetail returns true on success, false on error
+func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexDetailFormatter, indexName string, checkCount *int) bool {
 	*checkCount++
 
 	if *checkCount == constants.FirstCheckCount {
@@ -198,7 +203,7 @@ func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexD
 		return indexService.GetIndexDetailInfo(context.Background(), indexName)
 	})
 	if util.HandleServiceErrorWithReturn(err, "Index detail fetch") {
-		return
+		return false
 	}
 
 	formatterInfo := &ui.IndexDetailInfo{
@@ -211,6 +216,7 @@ func displayIndexDetail(indexService services.IndexService, formatter *ui.IndexD
 	}
 
 	fmt.Print(formatter.FormatIndexDetail(formatterInfo))
+	return true
 }
 
 func init() {

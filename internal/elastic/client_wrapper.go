@@ -3,6 +3,7 @@ package elastic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
@@ -308,6 +309,14 @@ func (cw *ClientWrapper) GetTermvectors(ctx context.Context, indexName, document
 	var result map[string]interface{}
 	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
 		return nil, err
+	}
+
+	// Check for error in response (index not found, etc.)
+	if errorData, ok := result["error"].(map[string]interface{}); ok {
+		if reason, ok := errorData["reason"].(string); ok {
+			return nil, fmt.Errorf("%s", reason)
+		}
+		return nil, fmt.Errorf("elasticsearch error")
 	}
 
 	return result, nil

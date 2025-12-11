@@ -59,8 +59,6 @@ func runSystemIndex(ctx context.Context, systemService services.SystemService) {
 		return
 	}
 
-	fmt.Println("# System Indices:")
-
 	headers := []string{"Health", "Status", "Docs", "Size", "Primary", "Repl", "Alias", "Index"}
 	rows := make([][]string, 0, len(indices))
 

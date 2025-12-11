@@ -10,6 +10,7 @@ import (
 
 type LuceneService interface {
 	GetLuceneStats(ctx context.Context) ([]models.LuceneStats, error)
+	GetLuceneStatsForIndex(ctx context.Context, indexName string) (*models.LuceneStats, error)
 }
 
 type luceneService struct {
@@ -41,6 +42,28 @@ func (s *luceneService) GetLuceneStats(ctx context.Context) ([]models.LuceneStat
 		}
 	}
 	return luceneStats, nil
+}
+
+func (s *luceneService) GetLuceneStatsForIndex(ctx context.Context, indexName string) (*models.LuceneStats, error) {
+	statsData, err := s.client.GetIndexStats(ctx, indexName)
+	if err != nil {
+		return nil, fmt.Errorf(constants.ErrIndexStatsRequestFailed, err)
+	}
+
+	indexStats := parseIndexStatsData(statsData)
+
+	// Get first index from response (works with both alias and real index name)
+	for resolvedIndexName, total := range indexStats {
+		if segments, ok := getSegmentsData(total); ok {
+			if indexing, ok := getIndexingData(total); ok {
+				stats := s.parseLuceneStats(resolvedIndexName, segments, indexing)
+				return &stats, nil
+			}
+		}
+		break
+	}
+
+	return nil, fmt.Errorf("'%s' index not found", indexName)
 }
 
 func (s *luceneService) parseLuceneStats(indexName string, segments, indexing map[string]interface{}) models.LuceneStats {

@@ -83,6 +83,12 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 		return nil, fmt.Errorf(constants.ErrIndexStatsRequestFailed, err)
 	}
 
+	// Check if index exists
+	indices, ok := statsData["indices"].(map[string]interface{})
+	if !ok || len(indices) == 0 {
+		return nil, fmt.Errorf("index '%s' not found", indexName)
+	}
+
 	var basicInfo models.IndexDetailInfo
 	basicInfo.Name = indexName
 	basicInfo.SearchRate = constants.DashString
@@ -91,71 +97,77 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 	basicInfo.AvgIndexTime = constants.DashString
 	currentTime := time.Now()
 
-	if indices, ok := statsData["indices"].(map[string]interface{}); ok {
-		if indexData, ok := indices[indexName].(map[string]interface{}); ok {
-			if total, ok := indexData["total"].(map[string]interface{}); ok {
-				var currentQueryTotal, currentQueryTime, currentIndexTotal, currentIndexTime int64
+	// Get first index from response (works with both alias and real index name)
+	var indexData map[string]interface{}
+	for _, data := range indices {
+		if d, ok := data.(map[string]interface{}); ok {
+			indexData = d
+			break
+		}
+	}
+	if indexData != nil {
+		if total, ok := indexData["total"].(map[string]interface{}); ok {
+			var currentQueryTotal, currentQueryTime, currentIndexTotal, currentIndexTime int64
 
-				if search, ok := total["search"].(map[string]interface{}); ok {
-					if queryTotal, ok := search["query_total"].(float64); ok {
-						currentQueryTotal = int64(queryTotal)
-					}
-					if queryTime, ok := search["query_time_in_millis"].(float64); ok {
-						currentQueryTime = int64(queryTime)
-					}
+			if search, ok := total["search"].(map[string]interface{}); ok {
+				if queryTotal, ok := search["query_total"].(float64); ok {
+					currentQueryTotal = int64(queryTotal)
 				}
-				if indexing, ok := total["indexing"].(map[string]interface{}); ok {
-					if indexTotal, ok := indexing["index_total"].(float64); ok {
-						currentIndexTotal = int64(indexTotal)
-					}
-					if indexTime, ok := indexing["index_time_in_millis"].(float64); ok {
-						currentIndexTime = int64(indexTime)
-					}
+				if queryTime, ok := search["query_time_in_millis"].(float64); ok {
+					currentQueryTime = int64(queryTime)
 				}
-				if prevSnapshot, exists := s.cache.GetSnapshot(indexName); exists {
-					timeDelta := currentTime.Sub(prevSnapshot.Timestamp).Seconds()
-					if timeDelta > 0 {
-						queryDelta := currentQueryTotal - prevSnapshot.QueryTotal
-						if queryDelta > 0 {
-							searchRate := float64(queryDelta) / timeDelta
-							basicInfo.SearchRate = s.formatRate(searchRate)
-
-							queryTimeDelta := currentQueryTime - prevSnapshot.QueryTime
-							avgQueryTime := float64(queryTimeDelta) / float64(queryDelta)
-							basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, avgQueryTime)
-						} else {
-							basicInfo.SearchRate = constants.DashString
-						}
-						indexDelta := currentIndexTotal - prevSnapshot.IndexTotal
-						if indexDelta > 0 {
-							indexRate := float64(indexDelta) / timeDelta
-							basicInfo.IndexRate = s.formatRate(indexRate)
-
-							indexTimeDelta := currentIndexTime - prevSnapshot.IndexTime
-							avgIndexTime := float64(indexTimeDelta) / float64(indexDelta)
-							basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, avgIndexTime)
-						} else {
-							basicInfo.IndexRate = constants.DashString
-						}
-					}
-				} else {
-					if currentQueryTotal > 0 {
-						basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentQueryTime)/float64(currentQueryTotal))
-					}
-					if currentIndexTotal > 0 {
-						basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentIndexTime)/float64(currentIndexTotal))
-					}
-				}
-				newSnapshot := &models.IndexStatsSnapshot{
-					IndexName:  indexName,
-					QueryTotal: currentQueryTotal,
-					QueryTime:  currentQueryTime,
-					IndexTotal: currentIndexTotal,
-					IndexTime:  currentIndexTime,
-					Timestamp:  currentTime,
-				}
-				s.cache.SetSnapshot(newSnapshot)
 			}
+			if indexing, ok := total["indexing"].(map[string]interface{}); ok {
+				if indexTotal, ok := indexing["index_total"].(float64); ok {
+					currentIndexTotal = int64(indexTotal)
+				}
+				if indexTime, ok := indexing["index_time_in_millis"].(float64); ok {
+					currentIndexTime = int64(indexTime)
+				}
+			}
+			if prevSnapshot, exists := s.cache.GetSnapshot(indexName); exists {
+				timeDelta := currentTime.Sub(prevSnapshot.Timestamp).Seconds()
+				if timeDelta > 0 {
+					queryDelta := currentQueryTotal - prevSnapshot.QueryTotal
+					if queryDelta > 0 {
+						searchRate := float64(queryDelta) / timeDelta
+						basicInfo.SearchRate = s.formatRate(searchRate)
+
+						queryTimeDelta := currentQueryTime - prevSnapshot.QueryTime
+						avgQueryTime := float64(queryTimeDelta) / float64(queryDelta)
+						basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, avgQueryTime)
+					} else {
+						basicInfo.SearchRate = constants.DashString
+					}
+					indexDelta := currentIndexTotal - prevSnapshot.IndexTotal
+					if indexDelta > 0 {
+						indexRate := float64(indexDelta) / timeDelta
+						basicInfo.IndexRate = s.formatRate(indexRate)
+
+						indexTimeDelta := currentIndexTime - prevSnapshot.IndexTime
+						avgIndexTime := float64(indexTimeDelta) / float64(indexDelta)
+						basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, avgIndexTime)
+					} else {
+						basicInfo.IndexRate = constants.DashString
+					}
+				}
+			} else {
+				if currentQueryTotal > 0 {
+					basicInfo.AvgQueryTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentQueryTime)/float64(currentQueryTotal))
+				}
+				if currentIndexTotal > 0 {
+					basicInfo.AvgIndexTime = fmt.Sprintf(constants.TimeFormatMS, float64(currentIndexTime)/float64(currentIndexTotal))
+				}
+			}
+			newSnapshot := &models.IndexStatsSnapshot{
+				IndexName:  indexName,
+				QueryTotal: currentQueryTotal,
+				QueryTime:  currentQueryTime,
+				IndexTotal: currentIndexTotal,
+				IndexTime:  currentIndexTime,
+				Timestamp:  currentTime,
+			}
+			s.cache.SetSnapshot(newSnapshot)
 		}
 	}
 

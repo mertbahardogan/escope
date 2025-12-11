@@ -28,31 +28,37 @@ var luceneCmd = &cobra.Command{
 		client := elastic.NewClientWrapper(connection.GetClient())
 		luceneService := services.NewLuceneService(client)
 
-		luceneStats, err := util.ExecuteWithTimeout(func() ([]models.LuceneStats, error) {
-			return luceneService.GetLuceneStats(context.Background())
-		})
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				fmt.Printf("Lucene stats fetch failed: %s\n", constants.MsgTimeoutGeneric)
-			} else {
-				fmt.Printf("Lucene stats fetch failed: %v\n", err)
-			}
-			return
-		}
-
 		var filteredStats []models.LuceneStats
+
 		if indexName != "" {
-			for _, stat := range luceneStats {
-				if stat.IndexName == indexName {
-					filteredStats = append(filteredStats, stat)
+			// Fetch stats for specific index (works with both alias and real index name)
+			stat, err := util.ExecuteWithTimeout(func() (*models.LuceneStats, error) {
+				return luceneService.GetLuceneStatsForIndex(context.Background(), indexName)
+			})
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					fmt.Printf("Lucene stats fetch failed: %s\n", constants.MsgTimeoutGeneric)
+				} else {
+					fmt.Printf("Lucene stats fetch failed: %v\n", err)
 				}
-			}
-			if len(filteredStats) == 0 {
-				fmt.Printf("Index '%s' not found\n", indexName)
 				return
 			}
+			filteredStats = append(filteredStats, *stat)
 		} else {
-			// Otherwise filter out system indices
+			// Fetch all indices
+			luceneStats, err := util.ExecuteWithTimeout(func() ([]models.LuceneStats, error) {
+				return luceneService.GetLuceneStats(context.Background())
+			})
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					fmt.Printf("Lucene stats fetch failed: %s\n", constants.MsgTimeoutGeneric)
+				} else {
+					fmt.Printf("Lucene stats fetch failed: %v\n", err)
+				}
+				return
+			}
+
+			// Filter out system indices
 			for _, stat := range luceneStats {
 				if !util.IsSystemIndex(stat.IndexName) {
 					filteredStats = append(filteredStats, stat)

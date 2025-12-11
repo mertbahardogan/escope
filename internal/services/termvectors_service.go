@@ -27,6 +27,10 @@ func (s *termvectorsService) GetDocumentTermvectors(ctx context.Context, indexNa
 		return nil, fmt.Errorf("termvectors request failed: %w", err)
 	}
 
+	if found, ok := result["found"].(bool); ok && !found {
+		return nil, fmt.Errorf("document '%s' not found in index '%s'", documentID, indexName)
+	}
+
 	var termInfos []models.TermInfo
 	var termVectors map[string]interface{}
 

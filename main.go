@@ -14,6 +14,8 @@ import (
 	_ "github.com/mertbahardogan/escope/cmd/sort"
 	_ "github.com/mertbahardogan/escope/cmd/system"
 	_ "github.com/mertbahardogan/escope/cmd/termvectors"
+	_ "github.com/mertbahardogan/escope/cmd/upgrade"
+	_ "github.com/mertbahardogan/escope/cmd/version"
 )
 
 func main() {

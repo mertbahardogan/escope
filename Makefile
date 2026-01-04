@@ -16,6 +16,10 @@ GOCLEAN=$(GOCMD) clean
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 
+# Version info (from git tags)
+VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS=-ldflags "-X github.com/mertbahardogan/escope/internal/version.Version=$(VERSION)"
+
 
 .PHONY: all build clean deps fmt lint help install run test-commands
 
@@ -24,8 +28,8 @@ all: clean build
 
 # Build the application
 build:
-	@echo "Building $(BINARY_NAME)..."
-	$(GOBUILD) -o $(BINARY_NAME) .
+	@echo "Building $(BINARY_NAME) $(VERSION)..."
+	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) .
 	@echo "Build complete: $(BINARY_NAME)"
 
 # Clean build artifacts
@@ -72,8 +76,8 @@ dev:
 
 # Create release build
 release: clean
-	@echo "Creating release build..."
-	CGO_ENABLED=0 $(GOBUILD) -a -installsuffix cgo -o $(BINARY_NAME) .
+	@echo "Creating release build $(VERSION)..."
+	CGO_ENABLED=0 $(GOBUILD) $(LDFLAGS) -a -installsuffix cgo -o $(BINARY_NAME) .
 	@echo "Release build complete"
 
 
@@ -170,6 +174,17 @@ test-commands: build
 	@echo "19b. Testing analyze command with tokenizer type..."
 	-./$(BINARY_NAME) analyze whitespace "Hello World Test" --type tokenizer
 	@echo ""
+	@echo "20. Testing version command..."
+	-./$(BINARY_NAME) version
+	@echo ""
+	@echo "21. Rebuilding with old version (v0.1.0) to test upgrade..."
+	@$(GOBUILD) -ldflags "-X github.com/mertbahardogan/escope/internal/version.Version=v0.1.0" -o $(BINARY_NAME) .
+	@echo "Testing upgrade command..."
+	-./$(BINARY_NAME) upgrade
+	@echo ""
+	@echo "Rebuilding with current version..."
+	@$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) .
+	@echo ""
 	@echo "All commands tested!"
 
 # Show help
@@ -184,5 +199,5 @@ help:
 	@echo "  run          - Build and run the application"
 	@echo "  dev          - Run with hot reload (requires air)"
 	@echo "  release      - Create release build"
-	@echo "  test-commands - Test all commands"
+	@echo "  test-commands - Test all commands (including upgrade)"
 	@echo "  help         - Show this help message" 

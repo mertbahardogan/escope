@@ -15,7 +15,8 @@ type ConnectionConfig struct {
 }
 
 type AppConfig struct {
-	ConnectionTimeout int `yaml:"connection_timeout"`
+	ConnectionTimeout int    `yaml:"connection_timeout"`
+	InstalledVersion  string `yaml:"installed_version,omitempty"`
 }
 
 type HostConfig struct {
@@ -184,5 +185,23 @@ func SetConnectionTimeout(timeout int) error {
 	}
 
 	hostCfg.Config.ConnectionTimeout = timeout
+	return Save(hostCfg)
+}
+
+func GetInstalledVersion() (string, error) {
+	appCfg, err := GetAppConfig()
+	if err != nil {
+		return "", err
+	}
+	return appCfg.InstalledVersion, nil
+}
+
+func SetInstalledVersion(version string) error {
+	hostCfg, err := Load()
+	if err != nil {
+		return err
+	}
+
+	hostCfg.Config.InstalledVersion = version
 	return Save(hostCfg)
 }

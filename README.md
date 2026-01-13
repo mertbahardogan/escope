@@ -69,7 +69,6 @@ escope
 | `escope segments` | -                                                                | Segment count and size analysis per index                                             |
 | `escope analyze` | `[analyzer_name] [text] --type`                                  | Analyze text using Elasticsearch analyzer or tokenizer                                |
 | `escope termvectors` | `[index] [document_id] [term] --fields`                        | Analyze term vectors and search for specific terms in document fields                 |
-| `escope version` | -                                                                | Show current version of escope                                                        |
 | `escope upgrade` | -                                                                | Check for updates and upgrade to the latest version                                   |
 
 ## Examples
@@ -355,15 +354,15 @@ escope termvectors my-index doc123 "elasticsearch" --fields content,title
 #  title            │ 1
 ```
 
-### Version & Upgrade
+### Upgrade
 ```bash
-# Check current version
-escope version
-# Output: escope version v1.0.0
-
-# Check for updates and upgrade
+# Check for updates and upgrade to latest version
 escope upgrade
-# Output: A new version is available: v1.1.0
+# Output: Latest version: v1.1.0
 #         Upgrading...
 #         Successfully upgraded to v1.1.0
+
+# If already up to date
+escope upgrade
+# Output: Already up to date v1.1.0
 ```

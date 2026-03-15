@@ -80,3 +80,22 @@ func (c *IndexStatsCache) SetSnapshot(snapshot *IndexStatsSnapshot) {
 	defer c.mu.Unlock()
 	c.snapshots[snapshot.IndexName] = snapshot
 }
+
+// FieldMapping represents a single field's mapping info for flat display
+type FieldMapping struct {
+	Path           string
+	Name           string // Just the field name (without parent path)
+	Type           string
+	Analyzer       string
+	SearchAnalyzer string
+	Index          string
+	Store          string
+	Normalizer     string
+	Depth          int // Nesting depth (0 = root level)
+}
+
+// IndexSettingInfo represents a single setting for flat display
+type IndexSettingInfo struct {
+	Key   string
+	Value string
+}

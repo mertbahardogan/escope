@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
+
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/util"
-	"io"
-	"strings"
 )
 
 type ClientWrapper struct {
@@ -20,18 +21,32 @@ func NewClientWrapper(client *elasticsearch.Client) interfaces.ElasticClient {
 	return &ClientWrapper{client: client}
 }
 
+// decodeJSONResponse reads and decodes JSON from body, closing it when done.
+func decodeJSONResponse(body io.ReadCloser, v interface{}) error {
+	defer body.Close()
+	return json.NewDecoder(body).Decode(v)
+}
+
+// checkElasticsearchError extracts error from ES response if present.
+func checkElasticsearchError(result map[string]interface{}) error {
+	if errorData, ok := result["error"].(map[string]interface{}); ok {
+		if reason, ok := errorData["reason"].(string); ok {
+			return fmt.Errorf("%s", reason)
+		}
+		return fmt.Errorf("elasticsearch error")
+	}
+	return nil
+}
+
 func (cw *ClientWrapper) GetClusterHealth(ctx context.Context) (map[string]interface{}, error) {
 	res, err := cw.client.Cluster.Health(cw.client.Cluster.Health.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
@@ -40,29 +55,15 @@ func (cw *ClientWrapper) GetClusterStats(ctx context.Context) (map[string]interf
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
 func (cw *ClientWrapper) GetNodes(ctx context.Context) (map[string]interface{}, error) {
-	res, err := cw.client.Nodes.Info(cw.client.Nodes.Info.WithContext(ctx))
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return cw.GetNodesInfo(ctx)
 }
 
 func (cw *ClientWrapper) GetNodesInfo(ctx context.Context) (map[string]interface{}, error) {
@@ -70,13 +71,10 @@ func (cw *ClientWrapper) GetNodesInfo(ctx context.Context) (map[string]interface
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
@@ -85,46 +83,25 @@ func (cw *ClientWrapper) GetNodesStats(ctx context.Context) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
-func (cw *ClientWrapper) GetIndices(ctx context.Context) (map[string]interface{}, error) {
-	res, err := cw.client.Cat.Indices(
-		cw.client.Cat.Indices.WithContext(ctx),
-		cw.client.Cat.Indices.WithFormat("json"),
-		cw.client.Cat.Indices.WithV(true),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var indices []map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&indices); err != nil {
-		return nil, err
-	}
-
-	aliasesRes, err := cw.client.Cat.Aliases(
+func (cw *ClientWrapper) fetchIndexAliases(ctx context.Context) (map[string]string, error) {
+	res, err := cw.client.Cat.Aliases(
 		cw.client.Cat.Aliases.WithContext(ctx),
 		cw.client.Cat.Aliases.WithFormat("json"),
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer aliasesRes.Body.Close()
-
 	var aliases []map[string]interface{}
-	if err := json.NewDecoder(aliasesRes.Body).Decode(&aliases); err != nil {
+	if err := decodeJSONResponse(res.Body, &aliases); err != nil {
 		return nil, err
 	}
-
 	indexAliases := make(map[string]string)
 	for _, alias := range aliases {
 		if index := util.GetStringField(alias, "index"); index != "" {
@@ -137,16 +114,18 @@ func (cw *ClientWrapper) GetIndices(ctx context.Context) (map[string]interface{}
 			}
 		}
 	}
+	return indexAliases, nil
+}
 
-	var processedIndices []map[string]interface{}
+func processIndicesWithAliases(indices []map[string]interface{}, indexAliases map[string]string) []map[string]interface{} {
+	processed := make([]map[string]interface{}, 0, len(indices))
 	for _, idx := range indices {
 		indexName := util.GetStringField(idx, "index")
 		alias := indexAliases[indexName]
 		if alias == "" {
 			alias = constants.DashString
 		}
-
-		processedIndex := map[string]interface{}{
+		processed = append(processed, map[string]interface{}{
 			"health":     util.GetStringField(idx, "health"),
 			"status":     util.GetStringField(idx, "status"),
 			"index":      indexName,
@@ -155,50 +134,35 @@ func (cw *ClientWrapper) GetIndices(ctx context.Context) (map[string]interface{}
 			"pri":        util.GetStringField(idx, "pri"),
 			"rep":        util.GetStringField(idx, "rep"),
 			"alias":      alias,
-		}
-		processedIndices = append(processedIndices, processedIndex)
+		})
 	}
-
-	return map[string]interface{}{
-		"": processedIndices,
-	}, nil
+	return processed
 }
 
-func (cw *ClientWrapper) GetIndexStats(ctx context.Context, indexName string) (map[string]interface{}, error) {
-	res, err := cw.client.Indices.Stats(cw.client.Indices.Stats.WithIndex(indexName), cw.client.Indices.Stats.WithContext(ctx))
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (cw *ClientWrapper) GetShards(ctx context.Context) (map[string]interface{}, error) {
-	// Use format=json to get structured data and avoid language issues
-	res, err := cw.client.Cat.Shards(
-		cw.client.Cat.Shards.WithContext(ctx),
-		cw.client.Cat.Shards.WithFormat("json"),
-		cw.client.Cat.Shards.WithV(true), // verbose mode to get all fields
+func (cw *ClientWrapper) GetIndices(ctx context.Context) (map[string]interface{}, error) {
+	res, err := cw.client.Cat.Indices(
+		cw.client.Cat.Indices.WithContext(ctx),
+		cw.client.Cat.Indices.WithFormat("json"),
+		cw.client.Cat.Indices.WithV(true),
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
-	var shards []map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&shards); err != nil {
+	var indices []map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &indices); err != nil {
 		return nil, err
 	}
+	indexAliases, err := cw.fetchIndexAliases(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"": processIndicesWithAliases(indices, indexAliases)}, nil
+}
 
-	var processedShards []map[string]interface{}
+func processShards(shards []map[string]interface{}) []map[string]interface{} {
+	processed := make([]map[string]interface{}, 0, len(shards))
 	for _, shard := range shards {
-		processedShard := map[string]interface{}{
+		p := map[string]interface{}{
 			"index":  util.GetStringField(shard, "index"),
 			"shard":  util.GetStringField(shard, "shard"),
 			"prirep": util.GetStringField(shard, "prirep"),
@@ -208,17 +172,40 @@ func (cw *ClientWrapper) GetShards(ctx context.Context) (map[string]interface{},
 			"ip":     util.GetStringField(shard, "ip"),
 			"node":   util.GetStringField(shard, "node"),
 		}
-
 		if nodeName := util.GetStringField(shard, "node_name"); nodeName != "" {
-			processedShard["node_name"] = nodeName
+			p["node_name"] = nodeName
 		}
-
-		processedShards = append(processedShards, processedShard)
+		processed = append(processed, p)
 	}
+	return processed
+}
 
-	return map[string]interface{}{
-		"": processedShards,
-	}, nil
+func (cw *ClientWrapper) GetIndexStats(ctx context.Context, indexName string) (map[string]interface{}, error) {
+	res, err := cw.client.Indices.Stats(cw.client.Indices.Stats.WithIndex(indexName), cw.client.Indices.Stats.WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (cw *ClientWrapper) GetShards(ctx context.Context) (map[string]interface{}, error) {
+	res, err := cw.client.Cat.Shards(
+		cw.client.Cat.Shards.WithContext(ctx),
+		cw.client.Cat.Shards.WithFormat("json"),
+		cw.client.Cat.Shards.WithV(true),
+	)
+	if err != nil {
+		return nil, err
+	}
+	var shards []map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &shards); err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"": processShards(shards)}, nil
 }
 
 func (cw *ClientWrapper) GetLuceneStats(ctx context.Context) (map[string]interface{}, error) {
@@ -226,13 +213,10 @@ func (cw *ClientWrapper) GetLuceneStats(ctx context.Context) (map[string]interfa
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
@@ -240,35 +224,23 @@ func (cw *ClientWrapper) GetSegments(ctx context.Context) (map[string]interface{
 	res, err := cw.client.Cat.Segments(
 		cw.client.Cat.Segments.WithContext(ctx),
 		cw.client.Cat.Segments.WithFormat("json"),
-		cw.client.Cat.Segments.WithBytes("b"), // get sizes in bytes
+		cw.client.Cat.Segments.WithBytes("b"),
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var segments []map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &segments); err != nil {
+	if err := decodeJSONResponse(res.Body, &segments); err != nil {
 		return nil, err
 	}
-
-	var processedSegments []map[string]interface{}
-	for _, segment := range segments {
-		processedSegment := map[string]interface{}{
-			"index": util.GetStringField(segment, "index"),
-			"size":  util.GetStringField(segment, "size"),
-		}
-		processedSegments = append(processedSegments, processedSegment)
+	processed := make([]map[string]interface{}, 0, len(segments))
+	for _, s := range segments {
+		processed = append(processed, map[string]interface{}{
+			"index": util.GetStringField(s, "index"),
+			"size":  util.GetStringField(s, "size"),
+		})
 	}
-
-	return map[string]interface{}{
-		"segments": processedSegments,
-	}, nil
+	return map[string]interface{}{"segments": processed}, nil
 }
 
 func (cw *ClientWrapper) Ping(ctx context.Context) error {
@@ -285,50 +257,33 @@ func (cw *ClientWrapper) GetClient() *elasticsearch.Client {
 }
 
 func (cw *ClientWrapper) GetTermvectors(ctx context.Context, indexName, documentID string, fields []string) (map[string]interface{}, error) {
-	requestBody := map[string]interface{}{
-		"fields": fields,
-	}
-
-	bodyBytes, err := json.Marshal(requestBody)
+	bodyBytes, err := json.Marshal(map[string]interface{}{"fields": fields})
 	if err != nil {
 		return nil, err
 	}
-
 	res, err := cw.client.Termvectors(
 		indexName,
 		cw.client.Termvectors.WithDocumentID(documentID),
 		cw.client.Termvectors.WithBody(strings.NewReader(string(bodyBytes))),
 		cw.client.Termvectors.WithContext(ctx),
 	)
-
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
-	// Check for error in response (index not found, etc.)
-	if errorData, ok := result["error"].(map[string]interface{}); ok {
-		if reason, ok := errorData["reason"].(string); ok {
-			return nil, fmt.Errorf("%s", reason)
-		}
-		return nil, fmt.Errorf("elasticsearch error")
+	if err := checkElasticsearchError(result); err != nil {
+		return nil, err
 	}
-
 	return result, nil
 }
 
 func (cw *ClientWrapper) GetIndicesWithSort(ctx context.Context, sortBy, sortOrder string) ([]map[string]interface{}, error) {
 	useClientSideSort := sortBy == "alias"
-
-	var sortParam string
-	if useClientSideSort {
-		sortParam = "index"
-	} else {
+	sortParam := "index"
+	if !useClientSideSort {
 		sortParam = buildSortParam(sortBy, sortOrder)
 	}
 
@@ -336,56 +291,11 @@ func (cw *ClientWrapper) GetIndicesWithSort(ctx context.Context, sortBy, sortOrd
 	if err != nil {
 		return nil, err
 	}
-
-	// Fetch aliases like in the regular GetIndices method
-	aliasesRes, err := cw.client.Cat.Aliases(
-		cw.client.Cat.Aliases.WithContext(ctx),
-		cw.client.Cat.Aliases.WithFormat("json"),
-	)
+	indexAliases, err := cw.fetchIndexAliases(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer aliasesRes.Body.Close()
-
-	var aliases []map[string]interface{}
-	if err := json.NewDecoder(aliasesRes.Body).Decode(&aliases); err != nil {
-		return nil, err
-	}
-
-	// Build index to aliases mapping
-	indexAliases := make(map[string]string)
-	for _, alias := range aliases {
-		if index := util.GetStringField(alias, "index"); index != "" {
-			if aliasName := util.GetStringField(alias, "alias"); aliasName != "" {
-				if existing, exists := indexAliases[index]; exists {
-					indexAliases[index] = existing + "," + aliasName
-				} else {
-					indexAliases[index] = aliasName
-				}
-			}
-		}
-	}
-
-	var processedIndices []map[string]interface{}
-	for _, idx := range indices {
-		indexName := util.GetStringField(idx, "index")
-		alias := indexAliases[indexName]
-		if alias == "" {
-			alias = constants.DashString
-		}
-
-		processedIndex := map[string]interface{}{
-			"health":     util.GetStringField(idx, "health"),
-			"status":     util.GetStringField(idx, "status"),
-			"index":      indexName,
-			"docs.count": util.GetStringField(idx, "docs.count"),
-			"store.size": util.GetStringField(idx, "store.size"),
-			"pri":        util.GetStringField(idx, "pri"),
-			"rep":        util.GetStringField(idx, "rep"),
-			"alias":      alias,
-		}
-		processedIndices = append(processedIndices, processedIndex)
-	}
+	processedIndices := processIndicesWithAliases(indices, indexAliases)
 
 	if useClientSideSort {
 		if sortOrder == "desc" {
@@ -415,74 +325,38 @@ func (cw *ClientWrapper) GetIndicesWithSort(ctx context.Context, sortBy, sortOrd
 }
 
 func (cw *ClientWrapper) GetShardsWithSort(ctx context.Context, sortBy, sortOrder string) ([]map[string]interface{}, error) {
-	sortParam := buildSortParam(sortBy, sortOrder)
-
-	shards, err := cw.makeShardsRequest(ctx, sortParam)
+	shards, err := cw.makeShardsRequest(ctx, buildSortParam(sortBy, sortOrder))
 	if err != nil {
 		return nil, err
 	}
-
-	var processedShards []map[string]interface{}
-	for _, shard := range shards {
-		processedShard := map[string]interface{}{
-			"index":  util.GetStringField(shard, "index"),
-			"shard":  util.GetStringField(shard, "shard"),
-			"prirep": util.GetStringField(shard, "prirep"),
-			"state":  util.GetStringField(shard, "state"),
-			"docs":   util.GetStringField(shard, "docs"),
-			"store":  util.GetStringField(shard, "store"),
-			"ip":     util.GetStringField(shard, "ip"),
-			"node":   util.GetStringField(shard, "node"),
-		}
-
-		if nodeName := util.GetStringField(shard, "node_name"); nodeName != "" {
-			processedShard["node_name"] = nodeName
-		}
-
-		processedShards = append(processedShards, processedShard)
-	}
-	return processedShards, nil
+	return processShards(shards), nil
 }
 
 func (cw *ClientWrapper) GetAnalyze(ctx context.Context, analyzerName, text string, analyzeType string) (map[string]interface{}, error) {
 	var requestBody map[string]interface{}
-
-	if analyzeType == "analyzer" {
-		requestBody = map[string]interface{}{
-			"analyzer": analyzerName,
-			"text":     text,
-		}
-	} else if analyzeType == "tokenizer" {
-		requestBody = map[string]interface{}{
-			"tokenizer": analyzerName,
-			"text":      text,
-		}
-	} else {
-		requestBody = map[string]interface{}{
-			"text": text,
-		}
+	switch analyzeType {
+	case "analyzer":
+		requestBody = map[string]interface{}{"analyzer": analyzerName, "text": text}
+	case "tokenizer":
+		requestBody = map[string]interface{}{"tokenizer": analyzerName, "text": text}
+	default:
+		requestBody = map[string]interface{}{"text": text}
 	}
-
 	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, err
 	}
-
 	res, err := cw.client.Indices.Analyze(
 		cw.client.Indices.Analyze.WithBody(strings.NewReader(string(bodyBytes))),
 		cw.client.Indices.Analyze.WithContext(ctx),
 	)
-
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
 	var result map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
@@ -492,6 +366,42 @@ func buildSortParam(sortBy, sortOrder string) string {
 		sortParam = sortBy + ":" + sortOrder
 	}
 	return sortParam
+}
+
+func (cw *ClientWrapper) GetIndexMapping(ctx context.Context, indexName string) (map[string]interface{}, error) {
+	res, err := cw.client.Indices.GetMapping(
+		cw.client.Indices.GetMapping.WithContext(ctx),
+		cw.client.Indices.GetMapping.WithIndex(indexName),
+	)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
+		return nil, err
+	}
+	if err := checkElasticsearchError(result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (cw *ClientWrapper) GetIndexSettings(ctx context.Context, indexName string) (map[string]interface{}, error) {
+	res, err := cw.client.Indices.GetSettings(
+		cw.client.Indices.GetSettings.WithContext(ctx),
+		cw.client.Indices.GetSettings.WithIndex(indexName),
+	)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
+		return nil, err
+	}
+	if err := checkElasticsearchError(result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (cw *ClientWrapper) makeIndicesRequest(ctx context.Context, sortParam string) ([]map[string]interface{}, error) {
@@ -504,18 +414,10 @@ func (cw *ClientWrapper) makeIndicesRequest(ctx context.Context, sortParam strin
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var data []map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &data); err != nil {
+	if err := decodeJSONResponse(res.Body, &data); err != nil {
 		return nil, err
 	}
-
 	return data, nil
 }
 
@@ -529,17 +431,9 @@ func (cw *ClientWrapper) makeShardsRequest(ctx context.Context, sortParam string
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-
-	bodyBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	var data []map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &data); err != nil {
+	if err := decodeJSONResponse(res.Body, &data); err != nil {
 		return nil, err
 	}
-
 	return data, nil
 }

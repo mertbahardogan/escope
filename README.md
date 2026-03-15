@@ -14,13 +14,14 @@
 - 📊 **Node Monitoring** - Detailed node metrics and health summary
 - 🗑️ **Garbage Collection Analysis** - JVM heap monitoring and GC performance metrics per node
 - 📊 **Index Monitoring** - Index health, status, and statistics with alias support, real-time index monitoring with search/index rates and performance metrics
+- 🗺️ **Index Mapping & Settings** - View index field mappings (types, analyzers) and index settings
 - 🗂️ **Shard Monitoring** - Shard distribution and unassigned shard details (system indices filtered)
 - 🔄 **Smart Sorting** - Sort shards and indices by any field with automatic type detection
 - 🛡️ **System Index Filtering** - Automatically hides Elasticsearch system indices
 - 🔧 **System Information Access** - Dedicated commands for viewing system indices and shards
 - 🔬 **Text Analysis** - Analyze text using Elasticsearch analyzers and tokenizers
 - ⏱️ **Configurable Timeout** - 3-second timeout for all external API calls
-- 🖥️ **TUI Support** - Terminal User Interface with progress bars, colored status badges, and real-time charts
+- 🖥️ **TUI Support** - Terminal User Interface with progress bars and colored status badges (cluster command)
 
 ## Requirements
 
@@ -63,7 +64,7 @@ escope
 | `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring  |
 | `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics                      |
 | `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis       |
-| `escope index` | `--name=<index>`, `--top`, `system`, `sort`                      | Index status, detailed monitoring, and system indices (filtered by default) |
+| `escope index` | `--name=<index>`, `--top`, `system`, `sort`, `mapping`, `settings`, `analyzer` | Index status, mapping, settings, analyzer config, and system indices (filtered by default) |
 | `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards                                  |
 | `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag)              |
 | `escope segments` | -                                                                | Segment count and size analysis per index                                             |
@@ -180,6 +181,15 @@ escope index --name my-index --top
 # Index Rate: 45.2 /s
 # Query Time: 12.8 ms
 # Index Time: 22.1 ms
+
+# View index field mappings (types, index settings per field)
+escope index mapping --name my-index
+
+# View index settings (shards, replicas, refresh interval, etc.)
+escope index settings --name my-index
+
+# View fields with custom analyzer configuration
+escope index analyzer --name my-index
 ```
 
 ### Garbage Collection Monitoring

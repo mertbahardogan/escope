@@ -14,6 +14,8 @@ type IndexService interface {
 	GetAllIndexInfos(ctx context.Context) ([]models.IndexInfo, error)
 	GetLuceneStats(ctx context.Context) ([]models.LuceneStats, error)
 	GetIndexDetailInfo(ctx context.Context, indexName string) (*models.IndexDetailInfo, error)
+	GetIndexMapping(ctx context.Context, indexName string) ([]models.FieldMapping, error)
+	GetIndexSettings(ctx context.Context, indexName string) ([]models.IndexSettingInfo, error)
 }
 
 type indexService struct {
@@ -261,4 +263,132 @@ func parseLuceneStats(indexName string, segments, indexing map[string]interface{
 	}
 
 	return stats
+}
+
+func (s *indexService) GetIndexMapping(ctx context.Context, indexName string) ([]models.FieldMapping, error) {
+	mappingData, err := s.client.GetIndexMapping(ctx, indexName)
+	if err != nil {
+		return nil, fmt.Errorf("mapping request failed: %w", err)
+	}
+
+	var fields []models.FieldMapping
+
+	// Iterate through index mappings (response format: {indexName: {mappings: {...}}})
+	for _, indexData := range mappingData {
+		if indexMap, ok := indexData.(map[string]interface{}); ok {
+			if mappings, ok := indexMap["mappings"].(map[string]interface{}); ok {
+				if properties, ok := mappings["properties"].(map[string]interface{}); ok {
+					fields = extractFields(properties, "", 0)
+				}
+			}
+		}
+	}
+
+	return fields, nil
+}
+
+func extractFields(properties map[string]interface{}, prefix string, depth int) []models.FieldMapping {
+	var fields []models.FieldMapping
+
+	for fieldName, fieldData := range properties {
+		path := fieldName
+		if prefix != "" {
+			path = prefix + "." + fieldName
+		}
+
+		if fieldMap, ok := fieldData.(map[string]interface{}); ok {
+			field := models.FieldMapping{
+				Path:           path,
+				Name:           fieldName,
+				Type:           getStringOrDefault(fieldMap, "type", "-"),
+				Analyzer:       getStringOrDefault(fieldMap, "analyzer", "-"),
+				SearchAnalyzer: getStringOrDefault(fieldMap, "search_analyzer", "-"),
+				Normalizer:     getStringOrDefault(fieldMap, "normalizer", "-"),
+				Index:          getBoolAsString(fieldMap, "index", "true"),
+				Store:          getBoolAsString(fieldMap, "store", "false"),
+				Depth:          depth,
+			}
+
+			// Handle nested properties
+			if nestedProps, ok := fieldMap["properties"].(map[string]interface{}); ok {
+				// Add parent field with type "object" if no type specified
+				if field.Type == "-" {
+					field.Type = "object"
+				}
+				fields = append(fields, field)
+				// Recursively extract nested fields
+				nestedFields := extractFields(nestedProps, path, depth+1)
+				fields = append(fields, nestedFields...)
+			} else {
+				fields = append(fields, field)
+			}
+		}
+	}
+
+	return fields
+}
+
+func getStringOrDefault(m map[string]interface{}, key, defaultVal string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return defaultVal
+}
+
+func getBoolAsString(m map[string]interface{}, key, defaultVal string) string {
+	if val, ok := m[key].(bool); ok {
+		if val {
+			return "true"
+		}
+		return "false"
+	}
+	return defaultVal
+}
+
+func (s *indexService) GetIndexSettings(ctx context.Context, indexName string) ([]models.IndexSettingInfo, error) {
+	settingsData, err := s.client.GetIndexSettings(ctx, indexName)
+	if err != nil {
+		return nil, fmt.Errorf("settings request failed: %w", err)
+	}
+
+	var settings []models.IndexSettingInfo
+
+	// Iterate through index settings (response format: {indexName: {settings: {...}}})
+	for _, indexData := range settingsData {
+		if indexMap, ok := indexData.(map[string]interface{}); ok {
+			if settingsMap, ok := indexMap["settings"].(map[string]interface{}); ok {
+				settings = flattenSettings(settingsMap, "")
+			}
+		}
+	}
+
+	return settings, nil
+}
+
+func flattenSettings(data map[string]interface{}, prefix string) []models.IndexSettingInfo {
+	var settings []models.IndexSettingInfo
+
+	for key, value := range data {
+		fullKey := key
+		if prefix != "" {
+			fullKey = prefix + "." + key
+		}
+
+		switch v := value.(type) {
+		case map[string]interface{}:
+			// Recursively flatten nested settings
+			nestedSettings := flattenSettings(v, fullKey)
+			settings = append(settings, nestedSettings...)
+		case string:
+			settings = append(settings, models.IndexSettingInfo{Key: fullKey, Value: v})
+		case float64:
+			settings = append(settings, models.IndexSettingInfo{Key: fullKey, Value: fmt.Sprintf("%v", v)})
+		case bool:
+			settings = append(settings, models.IndexSettingInfo{Key: fullKey, Value: fmt.Sprintf("%v", v)})
+		default:
+			settings = append(settings, models.IndexSettingInfo{Key: fullKey, Value: fmt.Sprintf("%v", v)})
+		}
+	}
+
+	return settings
 }

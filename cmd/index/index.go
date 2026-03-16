@@ -3,6 +3,12 @@ package index
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
+
 	"github.com/mertbahardogan/escope/cmd/core"
 	"github.com/mertbahardogan/escope/cmd/sort"
 	"github.com/mertbahardogan/escope/cmd/system"
@@ -13,12 +19,6 @@ import (
 	"github.com/mertbahardogan/escope/internal/services"
 	"github.com/mertbahardogan/escope/internal/ui"
 	"github.com/mertbahardogan/escope/internal/util"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
-
 	"github.com/spf13/cobra"
 )
 

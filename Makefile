@@ -137,6 +137,15 @@ test-commands: build
 	@echo "10. Testing index sort command..."
 	-./$(BINARY_NAME) index sort size
 	@echo ""
+	@echo "10b. Testing index mapping command..."
+	-./$(BINARY_NAME) index mapping --name="*"
+	@echo ""
+	@echo "10c. Testing index settings command..."
+	-./$(BINARY_NAME) index settings --name="*"
+	@echo ""
+	@echo "10d. Testing index analyzer command..."
+	-./$(BINARY_NAME) index analyzer --name="*"
+	@echo ""
 	@echo "11. Testing shard command..."
 	-./$(BINARY_NAME) shard
 	@echo ""

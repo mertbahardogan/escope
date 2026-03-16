@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+
 	"github.com/elastic/go-elasticsearch/v8"
 )
 
@@ -26,6 +27,9 @@ type ElasticClient interface {
 	GetTermvectors(ctx context.Context, indexName, documentID string, fields []string) (map[string]interface{}, error)
 
 	GetAnalyze(ctx context.Context, analyzerName, text string, analyzeType string) (map[string]interface{}, error)
+
+	GetIndexMapping(ctx context.Context, indexName string) (map[string]interface{}, error)
+	GetIndexSettings(ctx context.Context, indexName string) (map[string]interface{}, error)
 
 	Ping(ctx context.Context) error
 	GetClient() *elasticsearch.Client

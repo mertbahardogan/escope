@@ -146,6 +146,18 @@ test-commands: build
 	@echo "10d. Testing index analyzer command..."
 	-./$(BINARY_NAME) index analyzer --name="*"
 	@echo ""
+	@echo "10e. Testing index exists command..."
+	-./$(BINARY_NAME) index exists --name="*" --field _id
+	@echo ""
+	@echo "10f. Testing index exists with nested flag (path = first segment of --field)..."
+	-./$(BINARY_NAME) index exists --name="*" --field a.b --nested
+	@echo ""
+	@echo "10g. Testing index cardinality command..."
+	-./$(BINARY_NAME) index cardinality --name="*" --field _id
+	@echo ""
+	@echo "10h. Testing index exists with --value (term query)..."
+	-./$(BINARY_NAME) index exists --name="*" --field _id --value "__unlikely_doc_id__"
+	@echo ""
 	@echo "11. Testing shard command..."
 	-./$(BINARY_NAME) shard
 	@echo ""

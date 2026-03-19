@@ -15,6 +15,7 @@
 - 🗑️ **Garbage Collection Analysis** - JVM heap monitoring and GC performance metrics per node
 - 📊 **Index Monitoring** - Index health, status, and statistics with alias support, real-time index monitoring with search/index rates and performance metrics
 - 🗺️ **Index Mapping & Settings** - View index field mappings (types, analyzers) and index settings
+- 📉 **Field insights** - See how many documents have a field, filter by an exact value, or get a rough count of unique values; nested fields supported
 - 🗂️ **Shard Monitoring** - Shard distribution and unassigned shard details (system indices filtered)
 - 🔄 **Smart Sorting** - Sort shards and indices by any field with automatic type detection
 - 🛡️ **System Index Filtering** - Automatically hides Elasticsearch system indices
@@ -64,7 +65,7 @@ escope
 | `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring  |
 | `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics                      |
 | `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis       |
-| `escope index` | `--name=<index>`, `--top`, `system`, `sort`, `mapping`, `settings`, `analyzer` | Index status, mapping, settings, analyzer config, and system indices (filtered by default) |
+| `escope index` | `--name=<index>`, `--top`, `system`, `sort`, `mapping`, `settings`, `analyzer`, `exists`, `cardinality` | Index status, mapping, settings, field exists/term count & cardinality, analyzer, system indices (filtered by default) |
 | `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards                                  |
 | `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag)              |
 | `escope segments` | -                                                                | Segment count and size analysis per index                                             |
@@ -182,11 +183,76 @@ escope index --name my-index --top
 # Query Time: 12.8 ms
 # Index Time: 22.1 ms
 
-# View index field mappings (types, index settings per field)
+# View index field mappings (field path, type, indexed flag)
 escope index mapping --name my-index
+# Output:
+#
+# Index: my-index
+#
+# Fields (N)
+# +------------------+----------+-------+
+# | Field Path       | Type     | Index |
+# +------------------+----------+-------+
+# | @timestamp       | date     | true  |
+# | message          | text     | true  |
+# | status.keyword   | keyword  | true  |
+# +------------------+----------+-------+
+#
+# Nested Fields (M)
+# +------------------+----------+-------+
+# | Field Path       | Type     | Index |
+# +------------------+----------+-------+
+# | comments         | nested   | true  |
+# | comments.body    | text     | true  |
+# +------------------+----------+-------+
+#
+# Total: ... fields
 
-# View index settings (shards, replicas, refresh interval, etc.)
+# Short flags: -n for index or alias
+escope index mapping -n my-alias
+
+# View index settings (flattened key/value)
 escope index settings --name my-index
+# Output:
+#
+# Index: my-index
+#
+# +---------------------------+------------------+
+# | Setting                   | Value            |
+# +---------------------------+------------------+
+# | index.number_of_shards    | 1                |
+# | index.number_of_replicas  | 1                |
+# | index.refresh_interval    | 1s               |
+# +---------------------------+------------------+
+#
+# Total: ... settings
+
+escope index settings -n my-alias
+
+# Documents where a field exists (_count + exists query; use --nested for nested mappings)
+escope index exists --name my-index --field user.id
+escope index exists -n my-index -f comments.author --nested
+
+# Exact value: term query (e.g. merchant.id = 999); strings, integers, floats, true/false are inferred from --value
+escope index exists --name my-index --field merchant.id --value 999
+escope index exists -n my-index -f nested.merchantId -v 42 --nested
+
+# Output:
+# +-----------+--------+
+# | Documents | Exists |
+# +-----------+--------+
+# | 1.2M      | Yes    |
+# +-----------+--------+
+
+# Approximate distinct values (cardinality aggregation; analyzed text usually needs .keyword)
+escope index cardinality --name my-index --field status.keyword
+escope index cardinality -n my-index -f tags.keyword --nested
+# Output:
+# +-------------------------+
+# | Approx. distinct values |
+# +-------------------------+
+# | 42                      |
+# +-------------------------+
 
 # View fields with custom analyzer configuration
 escope index analyzer --name my-index

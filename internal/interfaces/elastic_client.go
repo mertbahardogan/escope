@@ -31,6 +31,9 @@ type ElasticClient interface {
 	GetIndexMapping(ctx context.Context, indexName string) (map[string]interface{}, error)
 	GetIndexSettings(ctx context.Context, indexName string) (map[string]interface{}, error)
 
+	CountWithBody(ctx context.Context, indexName string, body []byte) (int64, error)
+	SearchWithBody(ctx context.Context, indexName string, body []byte) (map[string]interface{}, error)
+
 	Ping(ctx context.Context) error
 	GetClient() *elasticsearch.Client
 }

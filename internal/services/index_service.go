@@ -2,12 +2,16 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/models"
 	"github.com/mertbahardogan/escope/internal/util"
-	"time"
 )
 
 type IndexService interface {
@@ -16,6 +20,8 @@ type IndexService interface {
 	GetIndexDetailInfo(ctx context.Context, indexName string) (*models.IndexDetailInfo, error)
 	GetIndexMapping(ctx context.Context, indexName string) ([]models.FieldMapping, error)
 	GetIndexSettings(ctx context.Context, indexName string) ([]models.IndexSettingInfo, error)
+	CountDocumentsByFieldQuery(ctx context.Context, indexName, field, value string, nested bool) (int64, error)
+	FieldValueCardinality(ctx context.Context, indexName, field string, nested bool) (int64, error)
 }
 
 type indexService struct {
@@ -391,4 +397,188 @@ func flattenSettings(data map[string]interface{}, prefix string) []models.IndexS
 	}
 
 	return settings
+}
+
+func nestedPathFromField(field string) (string, error) {
+	i := strings.Index(field, ".")
+	if i <= 0 {
+		return "", fmt.Errorf("nested mode requires a dotted field path (e.g. parent.child), got %q", field)
+	}
+	return field[:i], nil
+}
+
+func coerceTermQueryValue(s string) interface{} {
+	trim := strings.TrimSpace(s)
+	switch {
+	case strings.EqualFold(trim, "true"):
+		return true
+	case strings.EqualFold(trim, "false"):
+		return false
+	}
+	if i, err := strconv.ParseInt(trim, 10, 64); err == nil {
+		return i
+	}
+	if f, err := strconv.ParseFloat(trim, 64); err == nil {
+		return f
+	}
+	return trim
+}
+
+func buildFieldQueryCountBody(field string, nested bool, value string) ([]byte, error) {
+	if strings.TrimSpace(value) == "" {
+		return buildExistsOnlyCountBody(field, nested)
+	}
+	return buildTermCountBody(field, nested, value)
+}
+
+func buildExistsOnlyCountBody(field string, nested bool) ([]byte, error) {
+	var body map[string]interface{}
+	if !nested {
+		body = map[string]interface{}{
+			"query": map[string]interface{}{
+				"exists": map[string]interface{}{"field": field},
+			},
+		}
+	} else {
+		path, err := nestedPathFromField(field)
+		if err != nil {
+			return nil, err
+		}
+		body = map[string]interface{}{
+			"query": map[string]interface{}{
+				"nested": map[string]interface{}{
+					"path": path,
+					"query": map[string]interface{}{
+						"exists": map[string]interface{}{"field": field},
+					},
+				},
+			},
+		}
+	}
+	return json.Marshal(body)
+}
+
+func buildTermCountBody(field string, nested bool, valueStr string) ([]byte, error) {
+	val := coerceTermQueryValue(valueStr)
+	termQ := map[string]interface{}{
+		"term": map[string]interface{}{
+			field: val,
+		},
+	}
+	if !nested {
+		return json.Marshal(map[string]interface{}{"query": termQ})
+	}
+	path, err := nestedPathFromField(field)
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]interface{}{
+		"query": map[string]interface{}{
+			"nested": map[string]interface{}{
+				"path":  path,
+				"query": termQ,
+			},
+		},
+	}
+	return json.Marshal(body)
+}
+
+func buildFieldCardinalitySearchBody(field string, nested bool) ([]byte, error) {
+	const aggRoot = "field_cardinality"
+	const nestedAgg = "nested_scope"
+
+	var body map[string]interface{}
+	if !nested {
+		body = map[string]interface{}{
+			"size":             0,
+			"track_total_hits": false,
+			"aggs": map[string]interface{}{
+				aggRoot: map[string]interface{}{
+					"cardinality": map[string]interface{}{"field": field},
+				},
+			},
+		}
+	} else {
+		path, err := nestedPathFromField(field)
+		if err != nil {
+			return nil, err
+		}
+		body = map[string]interface{}{
+			"size":             0,
+			"track_total_hits": false,
+			"aggs": map[string]interface{}{
+				nestedAgg: map[string]interface{}{
+					"nested": map[string]interface{}{"path": path},
+					"aggs": map[string]interface{}{
+						aggRoot: map[string]interface{}{
+							"cardinality": map[string]interface{}{"field": field},
+						},
+					},
+				},
+			},
+		}
+	}
+	return json.Marshal(body)
+}
+
+func extractCardinalityValue(resp map[string]interface{}, nested bool) (int64, error) {
+	aggs, ok := resp["aggregations"].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("no aggregations in search response")
+	}
+
+	var bucket map[string]interface{}
+	if nested {
+		na, ok := aggs["nested_scope"].(map[string]interface{})
+		if !ok {
+			return 0, fmt.Errorf("missing nested aggregation in response")
+		}
+		bucket = na
+	} else {
+		bucket = aggs
+	}
+
+	fa, ok := bucket["field_cardinality"].(map[string]interface{})
+	if !ok {
+		return 0, fmt.Errorf("missing cardinality aggregation in response")
+	}
+	v, ok := fa["value"].(float64)
+	if !ok {
+		return 0, fmt.Errorf("unexpected cardinality value type")
+	}
+	return int64(v), nil
+}
+
+func (s *indexService) CountDocumentsByFieldQuery(ctx context.Context, indexName, field, value string, nested bool) (int64, error) {
+	if strings.TrimSpace(field) == "" {
+		return 0, fmt.Errorf("field name is required")
+	}
+	body, err := buildFieldQueryCountBody(field, nested, value)
+	if err != nil {
+		return 0, err
+	}
+	count, err := s.client.CountWithBody(ctx, indexName, body)
+	if err != nil {
+		return 0, fmt.Errorf("field query count failed: %w", err)
+	}
+	return count, nil
+}
+
+func (s *indexService) FieldValueCardinality(ctx context.Context, indexName, field string, nested bool) (int64, error) {
+	if strings.TrimSpace(field) == "" {
+		return 0, fmt.Errorf("field name is required")
+	}
+	body, err := buildFieldCardinalitySearchBody(field, nested)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := s.client.SearchWithBody(ctx, indexName, body)
+	if err != nil {
+		return 0, fmt.Errorf("field cardinality request failed: %w", err)
+	}
+	val, err := extractCardinalityValue(resp, nested)
+	if err != nil {
+		return 0, err
+	}
+	return val, nil
 }

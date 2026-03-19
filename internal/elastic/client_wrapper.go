@@ -1,6 +1,7 @@
 package elastic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -400,6 +401,53 @@ func (cw *ClientWrapper) GetIndexSettings(ctx context.Context, indexName string)
 	}
 	if err := checkElasticsearchError(result); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+func (cw *ClientWrapper) CountWithBody(ctx context.Context, indexName string, body []byte) (int64, error) {
+	res, err := cw.client.Count(
+		cw.client.Count.WithContext(ctx),
+		cw.client.Count.WithIndex(indexName),
+		cw.client.Count.WithBody(bytes.NewReader(body)),
+	)
+	if err != nil {
+		return 0, err
+	}
+	var result map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
+		return 0, err
+	}
+	if res.IsError() {
+		if err := checkElasticsearchError(result); err != nil {
+			return 0, err
+		}
+		return 0, fmt.Errorf("count request failed: %s", res.Status())
+	}
+	if count, ok := result["count"].(float64); ok {
+		return int64(count), nil
+	}
+	return 0, fmt.Errorf("unexpected count response")
+}
+
+func (cw *ClientWrapper) SearchWithBody(ctx context.Context, indexName string, body []byte) (map[string]interface{}, error) {
+	res, err := cw.client.Search(
+		cw.client.Search.WithContext(ctx),
+		cw.client.Search.WithIndex(indexName),
+		cw.client.Search.WithBody(bytes.NewReader(body)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]interface{}
+	if err := decodeJSONResponse(res.Body, &result); err != nil {
+		return nil, err
+	}
+	if res.IsError() {
+		if err := checkElasticsearchError(result); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("search request failed: %s", res.Status())
 	}
 	return result, nil
 }

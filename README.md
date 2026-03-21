@@ -1,4 +1,4 @@
-# escope - Elasticsearch CLI Tool
+<h1><img src="assets/logo.png" alt="escope" width="124" align="middle">escope: Elasticsearch CLI Tool</h1>
 
 [![Version](https://img.shields.io/github/v/release/mertbahardogan/escope)](https://github.com/mertbahardogan/escope/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mertbahardogan/escope.svg)](https://pkg.go.dev/github.com/mertbahardogan/escope)

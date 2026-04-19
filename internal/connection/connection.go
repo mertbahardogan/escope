@@ -29,6 +29,11 @@ func SetConfig(c Config) {
 	client = nil
 }
 
+// CurrentHost returns the host URL for the active connection (empty if unset).
+func CurrentHost() string {
+	return conf.Host
+}
+
 func ClearConfig() {
 	conf = Config{}
 	once = sync.Once{}

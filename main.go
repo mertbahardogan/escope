@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "github.com/mertbahardogan/escope/cmd/analyze"
+	_ "github.com/mertbahardogan/escope/cmd/calculator"
 	_ "github.com/mertbahardogan/escope/cmd/check"
 	_ "github.com/mertbahardogan/escope/cmd/cluster"
 	_ "github.com/mertbahardogan/escope/cmd/config"

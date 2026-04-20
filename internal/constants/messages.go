@@ -82,3 +82,6 @@ const (
 	MsgHighHeapUsage         = "High heap usage"
 	MsgHighDiskUsage         = "High disk usage"
 )
+const (
+	CalculatorErrSnapshotMissing = "no saved calculator snapshot for this host; save with ctrl+s first, or run without --snapshot for built-in defaults, or use --from-cluster for live cluster data"
+)

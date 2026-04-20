@@ -20,7 +20,7 @@ var clusterCmd = &cobra.Command{
 		clusterService := services.NewClusterService(client)
 
 		if err := tui.RunClusterTUI(clusterService); err != nil {
-			fmt.Printf("Error running TUI: %v\n", err)
+			fmt.Printf("Error running cluster view: %v\n", err)
 		}
 	},
 }

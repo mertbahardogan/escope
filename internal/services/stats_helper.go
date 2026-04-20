@@ -108,6 +108,39 @@ func getIndexSizeAndDocCount(indexName string, allStatsData map[string]interface
 	return indexSize, docCount
 }
 
+// PrimaryStoreBytesAndDocCountFromIndexStats sums primaries store size and doc count across indices
+// in an Indices.Stats response (supports a single index or an alias that resolves to one or more indices).
+func PrimaryStoreBytesAndDocCountFromIndexStats(statsData map[string]interface{}) (sizeBytes int64, docCount int64) {
+	if statsData == nil {
+		return 0, 0
+	}
+	indices, ok := statsData["indices"].(map[string]interface{})
+	if !ok {
+		return 0, 0
+	}
+	for _, raw := range indices {
+		indexData, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		primaries, ok := indexData["primaries"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if store, ok := primaries["store"].(map[string]interface{}); ok {
+			if sizeInBytes, ok := store["size_in_bytes"].(float64); ok {
+				sizeBytes += int64(sizeInBytes)
+			}
+		}
+		if docs, ok := primaries["docs"].(map[string]interface{}); ok {
+			if count, ok := docs["count"].(float64); ok {
+				docCount += int64(count)
+			}
+		}
+	}
+	return sizeBytes, docCount
+}
+
 func getNodeCount(nodesData map[string]interface{}) int {
 	if nodesData == nil {
 		return 0

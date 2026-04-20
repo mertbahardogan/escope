@@ -6,20 +6,21 @@ import (
 )
 
 func TestCompute_defaultHomeJS(t *testing.T) {
+	const writeTotalRPS = 500.0 / 60.0
 	in := Inputs{
-		Nodes:            3,
-		DedicatedMasters: 0,
-		Shards:           3,
-		ReplicasPerShard: 2,
-		GBSize:           90,
-		Documents:        10_000_000,
-		ReadRPM:          3000,
-		WriteRPM:         500,
-		Clusters:         1,
+		DataNodes:          3,
+		DedicatedMasters:   0,
+		Shards:             3,
+		ReplicasPerShard:   2,
+		GBSize:             90,
+		Documents:          10_000_000,
+		ReadRPS:            3000.0 / 60.0,
+		WriteRPS:           writeTotalRPS,
+		RAMGiBPerDataNode:  64,
+		DiskGiBPerDataNode: 2000,
 	}
 	res := Compute(in)
 
-	// (90/3) * (3+6) GiB * 1e9 (decimal) bytes as in Vue
 	wantBytes := int64(270 * 1000 * 1000000)
 	if res.ClusterBytes != wantBytes {
 		t.Fatalf("ClusterBytes: got %d want %d", res.ClusterBytes, wantBytes)
@@ -27,15 +28,15 @@ func TestCompute_defaultHomeJS(t *testing.T) {
 	if math.Abs(res.GBPerPrimaryShard-30) > 1e-9 {
 		t.Fatalf("GBPerPrimaryShard: got %v want 30", res.GBPerPrimaryShard)
 	}
-	if res.SizeWarning != SizeWarningHighWarn {
-		t.Fatalf("SizeWarning: got %s want high-warning band", res.SizeWarning)
+	if res.SizeWarning != SizeWarningNone {
+		t.Fatalf("SizeWarning: got %s want %s", res.SizeWarning, SizeWarningNone)
 	}
 	denom := float64(3*2 + 3)
-	wantRead := 3000 / denom
+	wantRead := (3000.0 / 60.0) / denom
 	if math.Abs(res.ReadPerPiece-wantRead) > 1e-9 {
 		t.Fatalf("ReadPerPiece: got %v want %v", res.ReadPerPiece, wantRead)
 	}
-	if res.WritePerShard != 500.0/3.0 {
+	if math.Abs(res.WritePerShard-writeTotalRPS/3.0) > 1e-9 {
 		t.Fatalf("WritePerShard: got %v", res.WritePerShard)
 	}
 	if !res.HasExpectedNodes {
@@ -46,37 +47,8 @@ func TestCompute_defaultHomeJS(t *testing.T) {
 	}
 }
 
-func TestCompute_clustersMultiplier(t *testing.T) {
-	in := Inputs{
-		Nodes: 1, Shards: 1, ReplicasPerShard: 0, GBSize: 10, Clusters: 2,
-	}
-	res := Compute(in)
-	// single cluster 10 GiB primary * (1+0) copies = 10 * 1e9 bytes; * 2 clusters
-	want := int64(20 * 1000 * 1000000)
-	if res.ClusterBytes != want {
-		t.Fatalf("got %d want %d", res.ClusterBytes, want)
-	}
-}
-
-func TestShardSummaries_ceil(t *testing.T) {
-	in := Inputs{
-		Shards: 3, ReplicasPerShard: 2, WriteRPM: 500, ReadRPM: 3000, GBSize: 90, Documents: 10_000_000,
-	}
-	rows := ShardSummaries(in)
-	if len(rows) != 3 {
-		t.Fatalf("len %d", len(rows))
-	}
-	if rows[0].WriteRPM != math.Ceil(500.0/3.0) {
-		t.Fatalf("WriteRPM ceil: got %v", rows[0].WriteRPM)
-	}
-	wantRead := math.Ceil(3000.0 / 9.0)
-	if rows[0].ReadRPM != wantRead {
-		t.Fatalf("ReadRPM: got %v want %v", rows[0].ReadRPM, wantRead)
-	}
-}
-
 func TestMessages_needsShard(t *testing.T) {
-	res := Compute(Inputs{Nodes: 3, Shards: 0, ReplicasPerShard: 1})
+	res := Compute(Inputs{DataNodes: 3, Shards: 0, ReplicasPerShard: 1})
 	if len(res.Messages) == 0 {
 		t.Fatal("expected message for zero shards")
 	}
@@ -84,7 +56,7 @@ func TestMessages_needsShard(t *testing.T) {
 
 func TestReplicaAllocation_noSameShardOnNode(t *testing.T) {
 	res := Compute(Inputs{
-		Nodes: 3, DedicatedMasters: 0, Shards: 3, ReplicasPerShard: 2, GBSize: 90,
+		DataNodes: 3, DedicatedMasters: 0, Shards: 3, ReplicasPerShard: 2, GBSize: 90,
 	})
 	for node, pieces := range res.Allocation {
 		seen := map[string]bool{}
@@ -94,6 +66,38 @@ func TestReplicaAllocation_noSameShardOnNode(t *testing.T) {
 				t.Fatalf("node %d has duplicate shard %s", node, key)
 			}
 			seen[key] = true
+		}
+	}
+}
+
+func TestNodeResourceViews_heapDetailAndCover(t *testing.T) {
+	in := Inputs{
+		DataNodes:          2,
+		Shards:             2,
+		ReplicasPerShard:   1,
+		GBSize:             40,
+		Documents:          100,
+		ReadRPS:            10,
+		WriteRPS:           10,
+		RAMGiBPerDataNode:  64,
+		DiskGiBPerDataNode: 500,
+	}
+	res := Compute(in)
+	rows := NodeSummaries(in, res.Allocation)
+	views := NodeResourceViews(in, rows)
+	if len(views) != 2 {
+		t.Fatalf("views len %d", len(views))
+	}
+	for _, v := range views {
+		if v.DiskUsePct < 0 || v.DiskUsePct > 100 {
+			t.Fatalf("disk pct %v", v.DiskUsePct)
+		}
+		sum := v.FieldDataGiB + v.QueryBufferGiB + v.IndexBufferGiB + v.HeapAvailGiB
+		if math.Abs(sum-v.HeapCapGiB) > 1e-6 {
+			t.Fatalf("heap detail sum %v vs cap %v", sum, v.HeapCapGiB)
+		}
+		if v.PageCacheCoversHotPct < 0 || v.PageCacheCoversHotPct > 100 {
+			t.Fatalf("cover pct %v", v.PageCacheCoversHotPct)
 		}
 	}
 }

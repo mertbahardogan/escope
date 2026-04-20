@@ -1,4 +1,3 @@
-// Package calculator ports the sizing logic from gbaptista/elastic-calculator (Vue).
 package calculator
 
 import (
@@ -6,17 +5,21 @@ import (
 	"strconv"
 )
 
-// Inputs mirrors elastic-calculator home.js / Cluster.vue props.
 type Inputs struct {
-	Nodes            int
-	DedicatedMasters int
-	Shards           int
-	ReplicasPerShard int // R in "number_of_replicas"
-	GBSize           int // total primary data size across all primary shards (GiB scale per original UI)
-	Documents        int64
-	ReadRPM          float64
-	WriteRPM         float64
-	Clusters         int // display / scenario count; storage summary can multiply when >1
+	DataNodes          int
+	DedicatedMasters   int
+	Shards             int
+	ReplicasPerShard   int // R in "number_of_replicas"
+	GBSize             int // total primary data size across all primary shards (GiB scale per original UI)
+	Documents          int64
+	ReadRPS            float64
+	WriteRPS           float64
+	RAMGiBPerDataNode  float64
+	DiskGiBPerDataNode float64
+}
+
+func (in Inputs) TotalNodes() int {
+	return in.DataNodes + in.DedicatedMasters
 }
 
 // PieceKind identifies a primary shard or a replica copy on a data node.
@@ -40,18 +43,16 @@ type SizeWarning string
 
 const (
 	SizeWarningNone       SizeWarning = ""
-	SizeWarningHighDanger SizeWarning = "high-danger" // > 32 GiB / primary
-	SizeWarningHighWarn   SizeWarning = "high-warning"
+	SizeWarningHighDanger SizeWarning = "high-danger"
 	SizeWarningLowDanger  SizeWarning = "low-danger"
 	SizeWarningLowWarn    SizeWarning = "low-warning"
 )
 
-// Result holds derived values for the TUI and tests.
 type Result struct {
 	GBPerPrimaryShard float64
 	ClusterBytes      int64 // total stored size including replica copies (same formula as Vue clusterSize)
 
-	ReadPerPiece  float64 // rpm per primary or replica piece
+	ReadPerPiece  float64 // RPS per primary or replica piece
 	WritePerShard float64
 
 	SizeWarning SizeWarning
@@ -67,18 +68,13 @@ type Result struct {
 	Messages []string
 }
 
-// Compute runs the same formulas as the reference Vue app.
 func Compute(in Inputs) Result {
-	if in.Clusters < 1 {
-		in.Clusters = 1
-	}
-
 	out := Result{
 		Allocation: map[int][]Piece{},
 		Messages:   nil,
 	}
 
-	dataNodes := in.Nodes - in.DedicatedMasters
+	dataNodes := in.DataNodes
 	if dataNodes < 0 {
 		dataNodes = 0
 	}
@@ -95,17 +91,16 @@ func Compute(in Inputs) Result {
 	}
 	out.GBPerPrimaryShard = gbPer
 
-	// Cluster.vue clusterSize: gbPerShard * (shards + shards*replicas) * 1000 * 1000000
 	clusterGiB := gbPer * float64(in.Shards+in.Shards*in.ReplicasPerShard)
 	out.ClusterBytes = int64(clusterGiB * 1000 * 1000000)
 
 	out.ReadPerPiece = 0
 	denom := float64(in.Shards*in.ReplicasPerShard + in.Shards)
 	if denom > 0 && in.Shards > 0 {
-		out.ReadPerPiece = in.ReadRPM / denom
+		out.ReadPerPiece = in.ReadRPS / denom
 	}
 	if in.Shards > 0 {
-		out.WritePerShard = in.WriteRPM / float64(in.Shards)
+		out.WritePerShard = in.WriteRPS / float64(in.Shards)
 	}
 
 	out.SizeWarning = sizeWarning(gbPer, in.Shards)
@@ -116,13 +111,8 @@ func Compute(in Inputs) Result {
 
 	expectedReplicas := in.Shards * in.ReplicasPerShard
 	replicasOK := out.ReplicaSlotsFilled == expectedReplicas && out.PrimarySlotsFilled == in.Shards
-	nodesOK := in.Nodes >= out.ExpectedMinNodes && replicasOK
+	nodesOK := in.TotalNodes() >= out.ExpectedMinNodes && replicasOK
 	out.HasExpectedNodes = nodesOK
-
-	// Optional: multiple independent clusters (home.js `clusters`) multiply total stored size.
-	if in.Clusters > 1 {
-		out.ClusterBytes *= int64(in.Clusters)
-	}
 
 	out.Messages = buildMessages(in, out)
 
@@ -130,11 +120,8 @@ func Compute(in Inputs) Result {
 }
 
 func sizeWarning(gbPerShard float64, shards int) SizeWarning {
-	if gbPerShard > 32 {
+	if gbPerShard > 50 {
 		return SizeWarningHighDanger
-	}
-	if gbPerShard > 28 {
-		return SizeWarningHighWarn
 	}
 	if shards < 2 {
 		return SizeWarningNone
@@ -255,9 +242,6 @@ func buildMessages(in Inputs, out Result) []string {
 	if out.DataNodes == 0 && in.Shards > 0 {
 		msgs = append(msgs, "The cluster has not being used!")
 	}
-	if !out.HasExpectedNodes && in.Shards > 0 {
-		msgs = append(msgs, "The cluster needs more nodes!")
-	}
 	return msgs
 }
 
@@ -270,14 +254,14 @@ func NodeSummaries(in Inputs, alloc map[int][]Piece) []NodeSummary {
 	denom := float64(in.Shards*r + in.Shards)
 	readPerPiece := 0.0
 	if denom > 0 {
-		readPerPiece = in.ReadRPM / denom
+		readPerPiece = in.ReadRPS / denom
 	}
-	writePerShard := in.WriteRPM / float64(in.Shards)
+	writePerShard := in.WriteRPS / float64(in.Shards)
 	docsPerShard := float64(in.Documents) / float64(in.Shards)
 	gbPerShard := float64(in.GBSize) / float64(in.Shards)
 
 	var rows []NodeSummary
-	maxN := in.Nodes - in.DedicatedMasters
+	maxN := in.DataNodes
 	for node := 1; node <= maxN; node++ {
 		pieces := alloc[node]
 		var prim, rep int
@@ -294,8 +278,8 @@ func NodeSummaries(in Inputs, alloc map[int][]Piece) []NodeSummary {
 			NodeIndex: node,
 			Primaries: prim,
 			Replicas:  rep,
-			ReadRPM:   float64(pieceCount) * readPerPiece,
-			WriteRPM:  float64(prim) * writePerShard,
+			ReadRPS:   float64(pieceCount) * readPerPiece,
+			WriteRPS:  float64(prim) * writePerShard,
 			Docs:      float64(prim) * docsPerShard,
 			BytesAll:  int64(float64(pieceCount) * gbPerShard * 1000 * 1000000),
 			BytesPrim: int64(float64(prim) * gbPerShard * 1000 * 1000000),
@@ -310,54 +294,84 @@ type NodeSummary struct {
 	NodeIndex int
 	Primaries int
 	Replicas  int
-	ReadRPM   float64
-	WriteRPM  float64
+	ReadRPS   float64
+	WriteRPS  float64
 	Docs      float64
 	BytesAll  int64
 	BytesPrim int64
 }
 
-// ShardSummaries returns per-primary-shard metrics (Shard.vue).
-func ShardSummaries(in Inputs) []ShardSummary {
-	if in.Shards == 0 {
-		return nil
-	}
-	r := in.ReplicasPerShard
-	denom := float64(in.Shards*r + in.Shards)
-	readEach := 0.0
-	if denom > 0 {
-		readEach = in.ReadRPM / denom
-	}
-	writeEach := in.WriteRPM / float64(in.Shards)
-	writeEach = math.Ceil(writeEach)
-	if readEach > 0 {
-		readEach = math.Ceil(readEach)
-	}
-	gbPer := float64(in.GBSize) / float64(in.Shards)
-	docEach := float64(in.Documents) / float64(in.Shards)
+type NodeResourceView struct {
+	NodeIndex int
 
-	out := make([]ShardSummary, in.Shards)
-	for i := 0; i < in.Shards; i++ {
-		out[i] = ShardSummary{
-			Index:     i + 1,
-			ReadRPM:   readEach,
-			WriteRPM:  writeEach,
-			Docs:      docEach,
-			Bytes:     int64(gbPer * 1000 * 1000000),
-			GBPerPrim: gbPer,
-			Warning:   sizeWarning(gbPer, in.Shards),
-		}
-	}
-	return out
+	RAMGiB         float64
+	HeapCapGiB     float64
+	OSPageCacheGiB float64 // RAM minus JVM heap cap (OS page cache budget)
+
+	DataGiB    float64
+	DiskCapGiB float64
+	DiskUsePct float64
+
+	// JVM heap sub-segments (sum to HeapCapGiB).
+	FieldDataGiB   float64
+	QueryBufferGiB float64
+	IndexBufferGiB float64
+	HeapAvailGiB   float64
+
+	// PageCacheCoversHotPct: min(100, OSPageCacheGiB/dataGiB*100) — share of on-node data that fits OS cache.
+	PageCacheCoversHotPct float64
+	HeapOfRAMPct          float64
 }
 
-// ShardSummary is one primary shard row (Shard.vue).
-type ShardSummary struct {
-	Index     int
-	ReadRPM   float64
-	WriteRPM  float64
-	Docs      float64
-	Bytes     int64
-	GBPerPrim float64
-	Warning   SizeWarning
+func NodeResourceViews(in Inputs, rows []NodeSummary) []NodeResourceView {
+	if len(rows) == 0 {
+		return nil
+	}
+	ram := in.RAMGiBPerDataNode
+	if ram < 1 {
+		ram = 1
+	}
+	diskCap := in.DiskGiBPerDataNode
+	if diskCap < 1 {
+		diskCap = 1
+	}
+	heapCap := math.Min(ram*0.5, 31)
+	osPage := math.Max(0, ram-heapCap)
+
+	out := make([]NodeResourceView, 0, len(rows))
+	for _, row := range rows {
+		dataGiB := float64(row.BytesAll) / 1e9
+		diskPct := math.Min(100, dataGiB/diskCap*100)
+
+		coverPct := 100.0
+		if dataGiB > 1e-9 {
+			coverPct = math.Min(100, osPage/dataGiB*100)
+		}
+
+		fd := 0.15 * heapCap
+		qb := 0.10 * heapCap
+		ib := 0.10 * heapCap
+		avail := heapCap - fd - qb - ib
+		if avail < 0 {
+			avail = 0
+		}
+
+		out = append(out, NodeResourceView{
+			NodeIndex: row.NodeIndex,
+
+			RAMGiB:                ram,
+			HeapCapGiB:            heapCap,
+			OSPageCacheGiB:        osPage,
+			DataGiB:               dataGiB,
+			DiskCapGiB:            diskCap,
+			DiskUsePct:            diskPct,
+			FieldDataGiB:          fd,
+			QueryBufferGiB:        qb,
+			IndexBufferGiB:        ib,
+			HeapAvailGiB:          avail,
+			PageCacheCoversHotPct: coverPct,
+			HeapOfRAMPct:          heapCap / ram * 100,
+		})
+	}
+	return out
 }

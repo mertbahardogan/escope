@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mertbahardogan/escope/internal/calculator"
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/models"
@@ -20,6 +21,7 @@ type IndexService interface {
 	GetIndexDetailInfo(ctx context.Context, indexName string) (*models.IndexDetailInfo, error)
 	GetIndexMapping(ctx context.Context, indexName string) ([]models.FieldMapping, error)
 	GetIndexSettings(ctx context.Context, indexName string) ([]models.IndexSettingInfo, error)
+	MergeCalculatorInputsFromIndex(ctx context.Context, indexName string, in *calculator.Inputs) error
 	CountDocumentsByFieldQuery(ctx context.Context, indexName, field, value string, nested bool) (int64, error)
 	FieldValueCardinality(ctx context.Context, indexName, field string, nested bool) (int64, error)
 }
@@ -180,6 +182,55 @@ func (s *indexService) GetIndexDetailInfo(ctx context.Context, indexName string)
 	}
 
 	return &basicInfo, nil
+}
+
+func parseShardReplicaFromSettings(settings []models.IndexSettingInfo) (shards, replicas int) {
+	for _, s := range settings {
+		key := s.Key
+		if strings.HasSuffix(key, "number_of_shards") {
+			if v, err := strconv.Atoi(strings.TrimSpace(s.Value)); err == nil {
+				shards = v
+			}
+		}
+		if strings.HasSuffix(key, "number_of_replicas") {
+			if v, err := strconv.Atoi(strings.TrimSpace(s.Value)); err == nil {
+				replicas = v
+			}
+		}
+	}
+	return shards, replicas
+}
+
+func (s *indexService) MergeCalculatorInputsFromIndex(ctx context.Context, indexName string, in *calculator.Inputs) error {
+	if in == nil {
+		return fmt.Errorf("nil inputs")
+	}
+	indexName = strings.TrimSpace(indexName)
+	if indexName == "" {
+		return fmt.Errorf("empty index name")
+	}
+	settings, err := s.GetIndexSettings(ctx, indexName)
+	if err != nil {
+		return err
+	}
+	pri, rep := parseShardReplicaFromSettings(settings)
+	if pri <= 0 {
+		return fmt.Errorf("could not read index.number_of_shards from settings")
+	}
+	statsData, err := s.client.GetIndexStats(ctx, indexName)
+	if err != nil {
+		return err
+	}
+	sizeBytes, docs := PrimaryStoreBytesAndDocCountFromIndexStats(statsData)
+	in.Shards = pri
+	in.ReplicasPerShard = rep
+	if sizeBytes > 0 {
+		in.GBSize = int(float64(sizeBytes)/(1000*1000*1000) + 0.5)
+	}
+	if docs > 0 {
+		in.Documents = docs
+	}
+	return nil
 }
 
 func (s *indexService) formatRate(rate float64) string {

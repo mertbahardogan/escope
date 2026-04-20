@@ -1,86 +1,62 @@
 package indexsession
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/mertbahardogan/escope/internal/config"
 	"github.com/mertbahardogan/escope/internal/connection"
 )
 
-type payload struct {
-	Host  string `json:"host"`
-	Index string `json:"index"`
-}
-
-func sessionFilePath() (string, error) {
-	base, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(base, "escope")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "index-session.json"), nil
-}
-
-// ReadSelectedIndex returns the index or alias saved for the current connection host.
 func ReadSelectedIndex() (string, bool) {
-	path, err := sessionFilePath()
+	raw, ok := connection.SessionHostURL()
+	if !ok {
+		return "", false
+	}
+	canon := config.CanonicalSessionHostKey(raw)
+	hc, err := config.Load()
 	if err != nil {
 		return "", false
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
+	merged := config.PickMergedHostSession(hc, canon, raw)
+	idx := strings.TrimSpace(merged.DefaultIndex)
+	if idx == "" {
 		return "", false
 	}
-	var p payload
-	if err := json.Unmarshal(data, &p); err != nil {
-		return "", false
-	}
-	host := connection.CurrentHost()
-	if host == "" || p.Host != host || strings.TrimSpace(p.Index) == "" {
-		return "", false
-	}
-	return strings.TrimSpace(p.Index), true
+	return idx, true
 }
 
-// WriteSelectedIndex stores the index or alias for the current connection host.
 func WriteSelectedIndex(index string) error {
 	index = strings.TrimSpace(index)
 	if index == "" {
 		return errors.New("index name is empty")
 	}
-	host := connection.CurrentHost()
-	if host == "" {
+	raw, ok := connection.SessionHostURL()
+	if !ok {
 		return errors.New("no Elasticsearch host configured")
 	}
-	path, err := sessionFilePath()
+	canon := config.CanonicalSessionHostKey(raw)
+	hc, err := config.Load()
 	if err != nil {
 		return err
 	}
-	p := payload{Host: host, Index: index}
-	data, err := json.Marshal(p)
-	if err != nil {
-		return err
+	merged := config.PickMergedHostSession(hc, canon, raw)
+	merged.DefaultIndex = index
+	if hc.Sessions == nil {
+		hc.Sessions = make(map[string]config.HostSessionData)
 	}
-	return os.WriteFile(path, data, 0o600)
+	hc.Sessions[canon] = merged
+	config.PruneDuplicateSessionKeys(&hc, canon, raw)
+	return config.Save(hc)
 }
 
-// Clear removes stored index selection.
 func Clear() error {
-	path, err := sessionFilePath()
-	if err != nil {
-		return err
+	raw, ok := connection.SessionHostURL()
+	if !ok {
+		return nil
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
+	return config.ClearDefaultIndex(raw)
 }
 
 // DescribeCurrent prints human-readable state for the use command (no trailing newline).

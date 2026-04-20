@@ -11,13 +11,19 @@ var useClear bool
 
 var useCmd = &cobra.Command{
 	Use:                "use [index-or-alias]",
-	Short:              "Remember index/alias for detail subcommands (session file, not config)",
+	Short:              "Remember index/alias for detail subcommands",
 	Args:               cobra.MaximumNArgs(1),
 	SilenceErrors:      true,
 	DisableSuggestions: true,
 	Long: `Stores the index or alias for the current Elasticsearch host so subcommands like
-mapping, settings, and analyzer can omit --name. The value is kept under the user cache
-directory (not in escope host config) and is ignored when the host does not match.`,
+mapping, settings, analyzer, exists, and cardinality can omit --name/-n when a default is set.
+
+With no arguments: print the current selection. --clear removes default_index for this host (calculator block, if any, is kept).`,
+	Example: `  escope index use --help
+
+  escope index use
+  escope index use my-index
+  escope index use --clear`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if useClear && len(args) > 0 {
 			fmt.Println("Error: do not pass an index name with --clear")
@@ -50,5 +56,5 @@ directory (not in escope host config) and is ignored when the host does not matc
 
 func init() {
 	indexCmd.AddCommand(useCmd)
-	useCmd.Flags().BoolVar(&useClear, "clear", false, "Forget the stored index for this host")
+	useCmd.Flags().BoolVar(&useClear, "clear", false, "Clear default index")
 }

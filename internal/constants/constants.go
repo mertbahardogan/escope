@@ -248,4 +248,6 @@ const (
 	RecommendationCategoryIndex   = "INDEX"
 	RecommendationCategoryNode    = "NODE"
 	RecommendationCategoryGeneral = "GENERAL"
+
+	CalculatorMsgSaved = "Saved"
 )

@@ -3,11 +3,13 @@ package connection
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/mertbahardogan/escope/internal/config"
 	"github.com/mertbahardogan/escope/internal/elastic"
-	"sync"
-	"time"
 )
 
 type Config struct {
@@ -29,9 +31,27 @@ func SetConfig(c Config) {
 	client = nil
 }
 
-// CurrentHost returns the host URL for the active connection (empty if unset).
 func CurrentHost() string {
 	return conf.Host
+}
+
+func SessionHostURL() (string, bool) {
+	if h := strings.TrimSpace(CurrentHost()); h != "" {
+		return h, true
+	}
+	alias, err := config.GetActiveHost()
+	if err != nil || strings.TrimSpace(alias) == "" {
+		return "", false
+	}
+	cfg, err := config.LoadHost(alias)
+	if err != nil {
+		return "", false
+	}
+	h := strings.TrimSpace(cfg.Host)
+	if h == "" {
+		return "", false
+	}
+	return h, true
 }
 
 func ClearConfig() {

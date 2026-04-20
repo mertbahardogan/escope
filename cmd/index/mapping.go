@@ -21,11 +21,12 @@ var mappingCmd = &cobra.Command{
 	DisableSuggestions: true,
 	Args:               cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		name, _ := cmd.Flags().GetString("name")
+		flagName, _ := cmd.Flags().GetString("name")
+		name := resolveIndexName(flagName)
 
 		if name == "" {
-			fmt.Println("Error: --name flag is required")
-			fmt.Println("Usage: escope index mapping --name <index-name>")
+			printIndexNameRequired()
+			fmt.Println("Usage: escope index mapping [--name <index-name>]")
 			return
 		}
 
@@ -99,6 +100,5 @@ func runIndexMapping(indexName string) {
 
 func init() {
 	indexCmd.AddCommand(mappingCmd)
-	mappingCmd.Flags().StringP("name", "n", "", "Index name to show mapping for (required)")
-	mappingCmd.MarkFlagRequired("name")
+	mappingCmd.Flags().StringP("name", "n", "", "Index name (defaults to index from 'escope index use')")
 }

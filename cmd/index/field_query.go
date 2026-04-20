@@ -32,9 +32,14 @@ Use --nested for nested fields: path is the first segment of --field
 		value, _ := cmd.Flags().GetString("value")
 		nested, _ := cmd.Flags().GetBool("nested")
 
+		name = resolveIndexName(name)
 		if name == "" || field == "" {
-			fmt.Println("Error: --name and --field are required")
-			fmt.Println("Usage: escope index exists --name <index-or-alias> --field <field> [--value <exact>] [--nested]")
+			if name == "" {
+				printIndexNameRequired()
+			} else {
+				fmt.Println("Error: --field is required")
+			}
+			fmt.Println("Usage: escope index exists [--name <index-or-alias>] --field <field> [--value <exact>] [--nested]")
 			return
 		}
 
@@ -58,9 +63,14 @@ For analyzed text you usually need a .keyword (or other doc_values) subfield.`,
 		field, _ := cmd.Flags().GetString("field")
 		nested, _ := cmd.Flags().GetBool("nested")
 
+		name = resolveIndexName(name)
 		if name == "" || field == "" {
-			fmt.Println("Error: --name and --field are required")
-			fmt.Println("Usage: escope index cardinality --name <index-or-alias> --field <field> [--nested]")
+			if name == "" {
+				printIndexNameRequired()
+			} else {
+				fmt.Println("Error: --field is required")
+			}
+			fmt.Println("Usage: escope index cardinality [--name <index-or-alias>] --field <field> [--nested]")
 			return
 		}
 
@@ -121,10 +131,9 @@ func init() {
 	indexCmd.AddCommand(cardinalityCmd)
 
 	registerFieldQueryFlags := func(cmd *cobra.Command, nestedUsage string) {
-		cmd.Flags().StringP("name", "n", "", "Index or alias (required)")
+		cmd.Flags().StringP("name", "n", "", "Index or alias (defaults to index from 'escope index use')")
 		cmd.Flags().StringP("field", "f", "", "Field path (required)")
 		cmd.Flags().Bool("nested", false, nestedUsage)
-		cmd.MarkFlagRequired("name")
 		cmd.MarkFlagRequired("field")
 	}
 

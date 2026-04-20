@@ -4,6 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/mertbahardogan/escope.svg)](https://pkg.go.dev/github.com/mertbahardogan/escope)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mertbahardogan/escope)](https://goreportcard.com/report/github.com/mertbahardogan/escope)
+[![Medium](https://img.shields.io/badge/Medium-12100E?style=flat&logo=medium&logoColor=white)](https://medium.com/@mbahardogan/escope-c9f983176f83)
 
 **escope** is a powerful CLI tool developed for **diagnostics** and **monitoring** of your **Elasticsearch** cluster. 🚀
 
@@ -22,7 +23,7 @@
 - 🔧 **System Information Access** - Dedicated commands for viewing system indices and shards
 - 🔬 **Text Analysis** - Analyze text using Elasticsearch analyzers and tokenizers
 - ⏱️ **Configurable Timeout** - 3-second timeout for all external API calls
-- 🖥️ **TUI Support** - Terminal User Interface with progress bars and colored status badges (cluster command)
+- 📐 **Sizing calculator** - Data-node and rps-based shard/replica model with RAM/disk hints; optional snapshot (ctrl+s), per host URL
 
 ## Requirements
 
@@ -65,7 +66,8 @@ escope
 | `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring  |
 | `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics                      |
 | `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis       |
-| `escope index` | `--name=<index>`, `--top`, `system`, `sort`, `mapping`, `settings`, `analyzer`, `exists`, `cardinality` | Index status, mapping, settings, field exists/term count & cardinality, analyzer, system indices (filtered by default) |
+| `escope index` | `--name=<index>`, `--top`, `system`, `sort`, `mapping`, `settings`, `analyzer`, `exists`, `cardinality`, `use` | Index status, mapping, settings, field exists/term count & cardinality, analyzer, system indices (filtered by default); `use` remembers default index/alias per host |
+| `escope calculator` | `calc`, `--from-cluster`, `--snapshot`, `--clear` | No flags: last ctrl+s snapshot if any, else built-in defaults; `--from-cluster` live pre-fill; `--snapshot` saved state only; ctrl+s saves |
 | `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards                                  |
 | `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag)              |
 | `escope segments` | -                                                                | Segment count and size analysis per index                                             |
@@ -155,6 +157,20 @@ escope node
 ```
 
 ### Index Monitoring
+
+**Default index (`escope index use`)** — Detail subcommands (`mapping`, `settings`, `analyzer`, `exists`, `cardinality`) can omit `--name` when a default is set. The value is stored in the host config file under `sessions.<hostURL>.default_index`, alongside host credentials and optional calculator snapshot (same host URL key).
+
+```bash
+# Show which index/alias is selected for this host (or that none is set)
+escope index use
+
+# Remember an index or alias for mapping/settings/analyzer/exists/cardinality
+escope index use my-index
+
+# Forget the stored index for this host
+escope index use --clear
+```
+
 ```bash
 # List all indices (system indices filtered)
 escope index
@@ -256,6 +272,32 @@ escope index cardinality -n my-index -f tags.keyword --nested
 
 # View fields with custom analyzer configuration
 escope index analyzer --name my-index
+```
+
+### Sizing calculator (`escope calculator`)
+
+Calculator field state is stored under **`sessions.<hostURL>`** in the host config (fields, focus, scroll). **Nothing is written automatically** — press **ctrl+s** to save a snapshot.
+
+The first input is **data nodes** (capacity for primaries/replicas); **total nodes** = data nodes + dedicated masters. Cluster-wide read/write totals are **requests per second (rps)**. **RAM per data node** and **disk per data node** (GiB) size the utilization columns and the RAM chart; **page-cache coverage of hot data** is derived from those assumptions and data on each node. Older saved field layouts are upgraded on load where possible.
+
+| Invocation | Initial values |
+|--------------|----------------|
+| `escope calculator` (no flags) | Last saved snapshot (ctrl+s) for this host, or built-in defaults if none |
+| `escope calculator --from-cluster` | Pre-fill from live cluster stats (optional `escope index use` default index refines shards/size/docs) |
+| `escope calculator --snapshot` | Load only from saved snapshot (ctrl+s); error if none for this host |
+
+```bash
+escope calculator
+# or
+escope calc
+# Live cluster pre-fill (requires reachable cluster; optional escope index use default index)
+escope calculator --from-cluster
+
+# Load only from stored snapshot
+escope calculator --snapshot
+
+# Remove calculator snapshot for this host (see --help)
+escope calculator --clear
 ```
 
 ### Garbage Collection Monitoring

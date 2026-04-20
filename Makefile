@@ -131,6 +131,9 @@ test-commands: build
 	@echo "8c. Testing index command with top flag..."
 	-timeout 5s ./$(BINARY_NAME) index --name="*" --top
 	@echo ""
+	@echo "8d. Testing index use command (current selection)..."
+	-./$(BINARY_NAME) index use
+	@echo ""
 	@echo "9. Testing index system command..."
 	-./$(BINARY_NAME) index system
 	@echo ""
@@ -190,6 +193,12 @@ test-commands: build
 	@echo ""
 	@echo "19b. Testing analyze command with tokenizer type..."
 	-./$(BINARY_NAME) analyze whitespace "Hello World Test" --type tokenizer
+	@echo ""
+	@echo "19c. Testing calculator command help..."
+	-./$(BINARY_NAME) calculator --help
+	@echo ""
+	@echo "19d. Testing calculator --clear (session file)..."
+	-./$(BINARY_NAME) calculator --clear
 	@echo ""
 	@echo "20. Testing upgrade command..."
 	-./$(BINARY_NAME) upgrade

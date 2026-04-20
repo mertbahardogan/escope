@@ -1,10 +1,11 @@
 package config
 
 import (
-	"github.com/mertbahardogan/escope/internal/constants"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+
+	"github.com/mertbahardogan/escope/internal/constants"
+	"gopkg.in/yaml.v3"
 )
 
 type ConnectionConfig struct {
@@ -23,6 +24,7 @@ type HostConfig struct {
 	Config     AppConfig                   `yaml:"config"`
 	Hosts      map[string]ConnectionConfig `yaml:"hosts"`
 	ActiveHost string                      `yaml:"active_host,omitempty"`
+	Sessions   map[string]HostSessionData  `yaml:"sessions,omitempty"`
 }
 
 func configFilePath() string {
@@ -46,8 +48,9 @@ func Load() (HostConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return HostConfig{
-				Config: AppConfig{ConnectionTimeout: constants.DefaultConfigTimeout},
-				Hosts:  make(map[string]ConnectionConfig),
+				Config:   AppConfig{ConnectionTimeout: constants.DefaultConfigTimeout},
+				Hosts:    make(map[string]ConnectionConfig),
+				Sessions: make(map[string]HostSessionData),
 			}, nil
 		}
 		return cfg, err
@@ -61,6 +64,9 @@ func Load() (HostConfig, error) {
 
 	if cfg.Hosts == nil {
 		cfg.Hosts = make(map[string]ConnectionConfig)
+	}
+	if cfg.Sessions == nil {
+		cfg.Sessions = make(map[string]HostSessionData)
 	}
 
 	if cfg.Config.ConnectionTimeout == 0 {

@@ -187,8 +187,8 @@ func (s *checkService) GetShardWarningsCheck(ctx context.Context) (*models.Shard
 	nodeShardCounts := make(map[string]int)
 	for _, shard := range shardsList {
 		state := util.GetStringField(shard, constants.StateField)
-		node := util.GetStringField(shard, constants.NodeFieldKey)
-		ip := util.GetStringField(shard, constants.IPFieldKey)
+		node := util.GetStringField(shard, constants.ShardRowNodeField)
+		ip := util.GetStringField(shard, constants.IPField)
 
 		switch state {
 		case constants.ShardStateUnassigned:

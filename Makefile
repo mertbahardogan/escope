@@ -200,6 +200,13 @@ test-commands: build
 	@echo "19d. Testing calculator --clear (session file)..."
 	-./$(BINARY_NAME) calculator --clear
 	@echo ""
+	@echo "19e. Testing record command help..."
+	-./$(BINARY_NAME) record --help
+	-./$(BINARY_NAME) record start --help
+	-./$(BINARY_NAME) record start --interval 45 --help
+	-./$(BINARY_NAME) record stop
+
+	@echo ""
 	@echo "20. Testing upgrade command..."
 	-./$(BINARY_NAME) upgrade
 	@echo ""

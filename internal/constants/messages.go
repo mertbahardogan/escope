@@ -85,3 +85,16 @@ const (
 const (
 	CalculatorErrSnapshotMissing = "no saved calculator snapshot for this host; save with ctrl+s first, or run without --snapshot for built-in defaults, or use --from-cluster for live cluster data"
 )
+
+const (
+	ErrRecordNoActiveSession   = "record: no active session; run escope record start"
+	ErrRecordInvalidSession    = "record: session file is invalid; run escope record stop then escope record start"
+	ErrRecordClientUnavailable = "record: Elasticsearch client missing in this process; run escope record start"
+	MsgRecordClusterAliasNone  = "(no alias)"
+	MsgRecordVersionUnknown    = "(unknown)"
+	RecordSampleErrDeadlineFmt = "[%s] timed out (detail: %v)"
+	RecordSampleErrGenericFmt  = "[%s] request failed (detail: %v)"
+	RecordErrFirstSampleFmt    = "record: first sample failed: %v"
+	RecordErrLaterSampleFmt    = "record: sample failed: %v"
+	RecordLogPreambleFmt       = "interval_seconds: %d\nsections: %s, %s, %s\n"
+)

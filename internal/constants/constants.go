@@ -101,13 +101,11 @@ const (
 	UsedPercentField     = "used_percent"
 	PercentField         = "percent"
 	DocsField            = "docs"
-	StoreFieldKey        = "store"
 
 	// Shard field keys
-	NodeFieldKey = "node"
-	IPFieldKey   = "ip"
-	AliasField   = "alias"
-	PrirepField2 = "prirep"
+	ShardRowNodeField = "node"
+	AliasField        = "alias"
+	PrirepField       = "prirep"
 
 	// String values
 	EmptyString        = ""
@@ -250,4 +248,26 @@ const (
 	RecommendationCategoryGeneral = "GENERAL"
 
 	CalculatorMsgSaved = "Saved"
+
+	RecordIntervalSeconds               = 60
+	RecordIntervalMinSeconds            = 1
+	RecordIntervalMaxSeconds            = 86400
+	RecordTickTimeoutSeconds            = 120
+	RecordHotThreadsServerTimeoutSecs   = 180
+	RecordHTTPResponseHeaderTimeoutSecs = 300
+	RecordHotThreadsThreadCount         = 3
+	RecordHotThreadsSnapshotCount       = 3
+	RecordHotThreadsIntervalMillis      = 500
+	RecordSessionFileName               = ".escope-record-session"
+	RecordLogFilenameTimeLayout         = "20060102_1504"
+	RecordLogFilenamePrefix             = "escope_"
+	RecordLogFileExtension              = ".log"
+	RecordBlockSeparatorWidth           = 80
+	RecordDesktopDir                    = "Desktop"
+
+	RecordSectionHotThreads    = "hot_threads"
+	RecordSectionShardActivity = "shard_activity"
+	RecordSectionNodeActivity  = "node_activity"
+
+	RecordShardKeyFmt = "%s|%s|%s"
 )

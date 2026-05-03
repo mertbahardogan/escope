@@ -10,6 +10,7 @@ import (
 	_ "github.com/mertbahardogan/escope/cmd/index"
 	_ "github.com/mertbahardogan/escope/cmd/lucene"
 	_ "github.com/mertbahardogan/escope/cmd/node"
+	_ "github.com/mertbahardogan/escope/cmd/record"
 	_ "github.com/mertbahardogan/escope/cmd/segments"
 	_ "github.com/mertbahardogan/escope/cmd/shard"
 	_ "github.com/mertbahardogan/escope/cmd/sort"

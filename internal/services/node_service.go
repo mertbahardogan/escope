@@ -3,11 +3,12 @@ package services
 import (
 	"context"
 	"fmt"
+	"sort"
+
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/models"
 	"github.com/mertbahardogan/escope/internal/util"
-	"sort"
 )
 
 type NodeService interface {
@@ -165,10 +166,10 @@ func (s *nodeService) GetNodeStats(ctx context.Context) ([]models.NodeStat, erro
 	if shards, ok := shardsData[constants.EmptyString].([]map[string]interface{}); ok {
 		for _, shard := range shards {
 			index, _ := shard[constants.IndexField].(string)
-			prirep, _ := shard[constants.PrirepField2].(string)
+			prirep, _ := shard[constants.PrirepField].(string)
 			state, _ := shard[constants.StateField].(string)
-			nodeIP, _ := shard[constants.NodeFieldKey].(string)
-			store, _ := shard[constants.StoreFieldKey].(string)
+			nodeIP, _ := shard[constants.ShardRowNodeField].(string)
+			store, _ := shard[constants.StoreField].(string)
 
 			if state != constants.ShardStateStarted || nodeIP == constants.DashString {
 				continue

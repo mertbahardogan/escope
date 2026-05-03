@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+
 	"github.com/mertbahardogan/escope/internal/constants"
 	"github.com/mertbahardogan/escope/internal/interfaces"
 	"github.com/mertbahardogan/escope/internal/models"
@@ -37,12 +38,12 @@ func (s *shardService) GetAllShardInfos(ctx context.Context) ([]models.ShardInfo
 			shardInfo := models.ShardInfo{
 				Index:  util.GetStringField(shard, constants.IndexField),
 				Shard:  util.GetStringField(shard, constants.ShardField),
-				Prirep: util.GetStringField(shard, constants.PrirepField2),
+				Prirep: util.GetStringField(shard, constants.PrirepField),
 				State:  util.GetStringField(shard, constants.StateField),
 				Docs:   util.GetStringField(shard, constants.DocsCountField),
 				Store:  util.GetStringField(shard, constants.StoreField),
-				IP:     util.GetStringField(shard, constants.IPFieldKey),
-				Node:   util.GetStringField(shard, constants.NodeFieldKey),
+				IP:     util.GetStringField(shard, constants.IPField),
+				Node:   util.GetStringField(shard, constants.ShardRowNodeField),
 			}
 			shards = append(shards, shardInfo)
 		}

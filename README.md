@@ -59,21 +59,22 @@ escope
 
 ## Command Reference
 
-| Command | Sub-commands                                                     | Description                                                                           |
-|---------|------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| `escope` | `--host`, `--username`, `--password`, `--secure`, `--alias`      | Root command - connection health check and configuration validation                   |
-| `escope config` | `list`, `get`, `delete`, `switch`, `current`, `clear`, `timeout` | Multi-host configuration management with alias support and timeout settings           |
-| `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring  |
-| `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics                      |
-| `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis       |
+| Command | Sub-commands                                                     | Description                                                                          |
+|---------|------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| `escope` | `--host`, `--username`, `--password`, `--secure`, `--alias`      | Root command - connection health check and configuration validation                  |
+| `escope config` | `list`, `get`, `delete`, `switch`, `current`, `clear`, `timeout` | Multi-host configuration management with alias support and timeout settings          |
+| `escope check` | `--duration`, `--interval`                                       | Comprehensive health check across all components with optional continuous monitoring |
+| `escope cluster` | -                                                                | Cluster health overview with node breakdown and shard statistics                     |
+| `escope node` | `gc`, `gc --name=<node>`, `dist`                                 | Node health, metrics, garbage collection information, and distribution analysis      |
+| `escope record` | `start`, `stop`, `start --interval`                             | Background sampler: hot threads, shard activity, node metrics to ~/Desktop |
 | `escope index` | `--name=<index>`, `--top`, `system`, `sort`, `mapping`, `settings`, `analyzer`, `exists`, `cardinality`, `use` | Index status, mapping, settings, field exists/term count & cardinality, analyzer, system indices (filtered by default); `use` remembers default index/alias per host |
 | `escope calculator` | `calc`, `--from-cluster`, `--snapshot`, `--clear` | No flags: last ctrl+s snapshot if any, else built-in defaults; `--from-cluster` live pre-fill; `--snapshot` saved state only; ctrl+s saves |
-| `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards                                  |
-| `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag)              |
-| `escope segments` | -                                                                | Segment count and size analysis per index                                             |
-| `escope analyze` | `[analyzer_name] [text] --type`                                  | Analyze text using Elasticsearch analyzer or tokenizer                                |
-| `escope termvectors` | `[index] [document_id] [term] --fields`                        | Analyze term vectors and search for specific terms in document fields                 |
-| `escope upgrade` | -                                                                | Check for updates and upgrade to the latest version                                   |
+| `escope shard` | `dist`, `system`, `sort`                                         | Shard analysis, distribution grid, and system shards                                 |
+| `escope lucene` | `--name=<index>`                                                 | Lucene segment analysis and memory breakdown (detailed with --name flag)             |
+| `escope segments` | -                                                                | Segment count and size analysis per index                                            |
+| `escope analyze` | `[analyzer_name] [text] --type`                                  | Analyze text using Elasticsearch analyzer or tokenizer                               |
+| `escope termvectors` | `[index] [document_id] [term] --fields`                        | Analyze term vectors and search for specific terms in document fields                |
+| `escope upgrade` | -                                                                | Check for updates and upgrade to the latest version                                  |
 
 ## Examples
 
@@ -154,6 +155,11 @@ escope check --duration 10m --interval 1s
 
 # Check node health and metrics
 escope node
+
+# Background log sampler (desktop file; same global flags as other commands)
+escope record start
+escope record start --interval 60
+escope record stop
 ```
 
 ### Index Monitoring
